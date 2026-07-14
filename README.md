@@ -9,14 +9,13 @@ Inspired by the technique used on DonutSMP.
 ## Requirements
 
 - **Paper 1.21.6** (also works on later 1.21.x; other versions untested)
-- **ProtocolLib 5.4.0+**  
-  For Minecraft 1.21.6+ you may need the latest dev build from https://ci.dmulloy2.net/job/ProtocolLib/ if 5.4.0 stable doesn't yet support your specific 1.21.x point release.
+- **PacketEvents 2.13.0+** — https://github.com/retrooper/packetevents/releases
 - **Java 21**
 
 ## Installation
 
 1. Drop `AntiMod-1.0.0.jar` into `plugins/`.
-2. Ensure `ProtocolLib` is also in `plugins/`.
+2. Ensure `PacketEvents` is also in `plugins/`.
 3. Start the server once to generate `plugins/AntiMod/config.yml`.
 4. Edit `config.yml` to configure the mods and actions you want.
 5. `/antimod reload` (or restart) to apply changes.

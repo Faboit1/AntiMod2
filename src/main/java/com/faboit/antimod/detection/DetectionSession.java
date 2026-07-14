@@ -1,6 +1,6 @@
 package com.faboit.antimod.detection;
 
-import com.comphenix.protocol.wrappers.BlockPosition;
+import com.github.retrooper.packetevents.util.Vector3i;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,7 +18,7 @@ public final class DetectionSession {
     private final UUID playerUuid;
     private final long createdAtMillis;
     private final String fallbackMarker;
-    private final BlockPosition signPosition;
+    private final Vector3i signPosition;
 
     /** line index (0..3) -> mod id */
     private final Map<Integer, String> lineToModId = new LinkedHashMap<>();
@@ -27,7 +27,7 @@ public final class DetectionSession {
 
     private boolean responded = false;
 
-    public DetectionSession(UUID playerUuid, String fallbackMarker, BlockPosition signPosition) {
+    public DetectionSession(UUID playerUuid, String fallbackMarker, Vector3i signPosition) {
         this.playerUuid = playerUuid;
         this.createdAtMillis = System.currentTimeMillis();
         this.fallbackMarker = fallbackMarker;
@@ -42,7 +42,7 @@ public final class DetectionSession {
     public UUID getPlayerUuid() { return playerUuid; }
     public long getCreatedAtMillis() { return createdAtMillis; }
     public String getFallbackMarker() { return fallbackMarker; }
-    public BlockPosition getSignPosition() { return signPosition; }
+    public Vector3i getSignPosition() { return signPosition; }
     public Map<Integer, String> getLineToModId() { return lineToModId; }
     public Map<Integer, String> getLineToKey() { return lineToKey; }
     public boolean isResponded() { return responded; }

@@ -1,6 +1,6 @@
 package com.faboit.antimod.detection;
 
-import com.comphenix.protocol.wrappers.BlockPosition;
+import com.github.retrooper.packetevents.util.Vector3i;
 import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.config.ConfigManager;
@@ -89,7 +89,7 @@ public final class DetectionManager {
         UUID uuid = player.getUniqueId();
         ConfigManager cfg = plugin.getConfigManager();
 
-        BlockPosition pos = packetSender.computeSignPosition(player);
+        Vector3i pos = packetSender.computeSignPosition(player);
         DetectionSession session = new DetectionSession(uuid, cfg.getFallbackMarker(), pos);
         for (int i = 0; i < batch.size() && i < cfg.getKeysPerSign(); i++) {
             PendingProbe p = batch.get(i);
@@ -141,7 +141,7 @@ public final class DetectionManager {
     /**
      * Sends a BLOCK_CHANGE for AIR at the given position to remove the ghost sign.
      */
-    public void sendCleanup(Player player, BlockPosition pos) {
+    public void sendCleanup(Player player, Vector3i pos) {
         packetSender.sendCleanup(player, pos);
     }
 
