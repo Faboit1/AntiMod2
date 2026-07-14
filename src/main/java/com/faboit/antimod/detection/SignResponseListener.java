@@ -1,12 +1,13 @@
 package com.faboit.antimod.detection;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.ListenerPriority;
-import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.BlockPosition;
 import com.faboit.antimod.AntiMod;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListenerAbstract;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.util.Vector3i;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientUpdateSign;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -26,23 +27,25 @@ import java.util.logging.Level;
  * We only intercept responses for our known phantom position; anything
  * else is passed through untouched.
  */
-public final class SignResponseListener extends PacketAdapter {
+public final class SignResponseListener extends PacketListenerAbstract {
 
     private final AntiMod plugin;
     private final DetectionManager manager;
 
     public SignResponseListener(AntiMod plugin, DetectionManager manager) {
-        super(plugin, ListenerPriority.NORMAL, PacketType.Play.Client.UPDATE_SIGN);
+        super(PacketListenerPriority.NORMAL);
         this.plugin = plugin;
         this.manager = manager;
     }
 
     public void register() {
-        ProtocolLibrary.getProtocolManager().addPacketListener(this);
+        PacketEvents.getAPI().getEventManager().registerListener(this);
     }
 
     @Override
-    public void onPacketReceiving(PacketEvent event) {
+    public void onPacketReceive(PacketReceiveEvent event) {
+        if (event.getPacketType() != PacketType.Play.Client.UPDATE_SIGN) return;
+
         try {
             Player player = event.getPlayer();
             if (player == null) return;
@@ -54,11 +57,12 @@ public final class SignResponseListener extends PacketAdapter {
             DetectionSession session = manager.peekSession(uuid);
             if (session == null) return;
 
-            BlockPosition pos = event.getPacket().getBlockPositionModifier().read(0);
+            WrapperPlayClientUpdateSign packet = new WrapperPlayClientUpdateSign(event);
+            Vector3i pos = packet.getBlockPosition();
             if (pos == null) return;
 
             // Verify the packet's position matches the session's phantom sign.
-            BlockPosition expected = session.getSignPosition();
+            Vector3i expected = session.getSignPosition();
             if (pos.getX() != expected.getX()
                     || pos.getY() != expected.getY()
                     || pos.getZ() != expected.getZ()) {
@@ -72,9 +76,8 @@ public final class SignResponseListener extends PacketAdapter {
             manager.consumeSession(uuid);
             session.markResponded();
 
-            // Read the 4 lines. In 1.20+ the packet stores them as String[]
-            // in the arrays modifier at index 0.
-            String[] lines = event.getPacket().getStringArrays().read(0);
+            // Read the 4 lines.
+            String[] lines = packet.getTextLines();
             if (lines == null) return;
 
             // Compare each line to the fallback marker; anything else means
@@ -95,7 +98,7 @@ public final class SignResponseListener extends PacketAdapter {
             }
 
             // Hop back to the main thread for cleanup and game actions.
-            final BlockPosition cleanupPos = expected;
+            final Vector3i cleanupPos = expected;
             Bukkit.getScheduler().runTask(plugin, () -> {
                 // Remove the ghost sign from the client by sending AIR.
                 manager.sendCleanup(player, cleanupPos);

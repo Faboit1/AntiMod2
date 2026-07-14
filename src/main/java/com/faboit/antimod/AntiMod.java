@@ -7,6 +7,8 @@ import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.detection.SignResponseListener;
 import com.faboit.antimod.listener.PlayerJoinListener;
 import com.faboit.antimod.violation.ViolationManager;
+import com.github.retrooper.packetevents.PacketEvents;
+import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -18,7 +20,24 @@ public final class AntiMod extends JavaPlugin {
     private DetectionManager detectionManager;
 
     @Override
+    public void onLoad() {
+        if (getServer().getPluginManager().getPlugin("packetevents") == null) {
+            getLogger().severe("PacketEvents is not installed. AntiMod cannot function without it.");
+            return;
+        }
+        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this));
+        PacketEvents.getAPI().load();
+    }
+
+    @Override
     public void onEnable() {
+        if (PacketEvents.getAPI() == null) {
+            getLogger().severe("PacketEvents is not installed. AntiMod cannot function without it.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        PacketEvents.getAPI().init();
+
         // Configuration
         this.configManager = new ConfigManager(this);
         this.configManager.load();
@@ -31,12 +50,7 @@ public final class AntiMod extends JavaPlugin {
         ActionExecutor actionExecutor = new ActionExecutor(this, violationManager);
         this.detectionManager = new DetectionManager(this, actionExecutor);
 
-        // ProtocolLib packet listener for UPDATE_SIGN responses
-        if (getServer().getPluginManager().getPlugin("ProtocolLib") == null) {
-            getLogger().severe("ProtocolLib is not installed. AntiMod cannot function without it.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
+        // PacketEvents packet listener for UPDATE_SIGN responses
         new SignResponseListener(this, detectionManager).register();
 
         // Event listener for join/quit
@@ -69,6 +83,9 @@ public final class AntiMod extends JavaPlugin {
     @Override
     public void onDisable() {
         if (violationManager != null) violationManager.save();
+        if (PacketEvents.getAPI() != null) {
+            PacketEvents.getAPI().terminate();
+        }
         getLogger().info("AntiMod disabled.");
     }
 

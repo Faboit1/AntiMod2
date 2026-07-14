@@ -5,7 +5,7 @@ api-version: '1.21'
 author: Faboit
 description: Detects players using banned client mods via the translation-key sign exploit.
 website: https://github.com/Faboit1/AntiMod
-depend: [ProtocolLib]
+depend: [packetevents]
 load: POSTWORLD
 
 commands:
