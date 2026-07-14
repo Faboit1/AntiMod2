@@ -8,7 +8,7 @@ import com.github.retrooper.packetevents.protocol.nbt.NBTList;
 import com.github.retrooper.packetevents.protocol.nbt.NBTString;
 import com.github.retrooper.packetevents.protocol.nbt.NBTType;
 import com.github.retrooper.packetevents.protocol.world.blockentity.BlockEntityTypes;
-import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
+import com.github.retrooper.packetevents.protocol.world.states.type.StateTypes;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockEntityData;
@@ -60,9 +60,12 @@ public final class SignPacketSender {
         try {
             Vector3i pos = session.getSignPosition();
 
-            // 1. Block change - convince the client a sign exists here
+            // 1. Block change - convince the client a sign exists here.
+            // Use the StateType's default state (correct global palette id);
+            // getByString would silently fall back to AIR because its lookup
+            // keys include block-state properties (e.g. "oak_sign[rotation=0,...]").
             PacketEvents.getAPI().getPlayerManager().sendPacket(player,
-                    new WrapperPlayServerBlockChange(pos, WrappedBlockState.getByString("minecraft:oak_sign")));
+                    new WrapperPlayServerBlockChange(pos, StateTypes.OAK_SIGN.createBlockState()));
 
             // 2. Block entity data - the sign's text with translation components
             NBTCompound nbt = buildSignNbt(session);
@@ -95,7 +98,7 @@ public final class SignPacketSender {
     public void sendCleanup(Player player, Vector3i pos) {
         try {
             PacketEvents.getAPI().getPlayerManager().sendPacket(player,
-                    new WrapperPlayServerBlockChange(pos, WrappedBlockState.getByString("minecraft:air")));
+                    new WrapperPlayServerBlockChange(pos, StateTypes.AIR.createBlockState()));
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING,
                     "Failed to send cleanup block for " + player.getName(), e);
