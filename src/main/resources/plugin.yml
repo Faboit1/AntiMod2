@@ -1,0 +1,32 @@
+name: AntiMod
+version: '${project.version}'
+main: com.faboit.antimod.AntiMod
+api-version: '1.21'
+author: Faboit
+description: Detects players using banned client mods via the translation-key sign exploit.
+website: https://github.com/Faboit1/AntiMod
+depend: [ProtocolLib]
+load: POSTWORLD
+
+commands:
+  antimod:
+    description: AntiMod administration.
+    permission: antimod.admin
+    usage: |
+      /antimod reload — Reload configuration
+      /antimod check <player> — Run detection on a player
+      /antimod violations <player> — Show a player's violation history
+      /antimod clear <player> [mod] — Clear a player's violations
+      /antimod info — Plugin info
+    aliases: [am]
+
+permissions:
+  antimod.admin:
+    description: Access to AntiMod administration commands.
+    default: op
+  antimod.bypass:
+    description: Bypass mod detection entirely.
+    default: false
+  antimod.notify:
+    description: Receive in-game detection notifications.
+    default: op

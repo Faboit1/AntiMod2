@@ -1,0 +1,200 @@
+# =====================================================================
+#                          AntiMod Configuration
+# =====================================================================
+# This plugin detects banned client mods using the "sign translation
+# key" exploit: the server sends a fake sign to the client containing
+# translation keys with a known fallback. If the client has the mod,
+# it renders the mod's translated string; if not, the fallback is
+# returned. The client's response reveals which mods are installed.
+#
+# The entire detection cycle happens silently during the join sequence
+# (or on demand), and the sign editor never visibly opens for players
+# on modern clients when the container is force-closed in time.
+# =====================================================================
+
+detection:
+  # Run detection automatically when a player joins.
+  on-join: true
+
+  # Delay after join before running detection (in ticks; 20 ticks = 1 second).
+  # Give the client time to finish loading resources before probing.
+  join-delay-ticks: 40
+
+  # Run detection periodically for online players.
+  periodic:
+    enabled: false
+    # Interval in seconds.
+    interval: 600
+
+  # How long to wait for a client response before discarding the session.
+  response-timeout-ticks: 100
+
+  # The phantom sign is placed relative to the player's current position.
+  # It must be within render distance or the client will ignore it.
+  # This offset is subtracted from the player's Y coordinate (100 = 100 blocks below).
+  sign-y-offset: 100
+
+  # The fallback text sent alongside each translation key.
+  # If the client returns this string, the key was NOT translated (mod absent).
+  # If the client returns something else, the mod IS present.
+  # Keep it short and unlikely to collide with real mod translations.
+  fallback-marker: "am_fb"
+
+  # Delay (in ticks) between sending Open Sign Editor and Close Window packets.
+  # 0 = same tick (most silent). If the sign UI briefly flashes for players,
+  # try 1 — still invisible during the loading screen.
+  close-delay-ticks: 0
+
+  # Keys to test per sign (each sign has 4 lines, so max is 4).
+  # Using 1 is the safest: one key per sign, sent sequentially.
+  # Higher values are faster but pack multiple keys into one sign.
+  keys-per-sign: 1
+
+# =====================================================================
+# Notifications & logging
+# =====================================================================
+notifications:
+  # Log every detection to the server console.
+  console-log: true
+
+  # Broadcast in-game to players with 'antimod.notify' permission.
+  staff-broadcast: true
+
+  # Message sent to staff. MiniMessage format supported.
+  # Placeholders: <player>, <uuid>, <mod>, <violations>, <action>, <keys>
+  staff-message: "<red>[AntiMod]</red> <yellow><player></yellow> <gray>detected using</gray> <red><mod></red> <gray>(violation #<violations>, action: <action>)</gray>"
+
+  # Message written to console. Regular text; use & for legacy color if desired.
+  console-message: "[AntiMod] {player} ({uuid}) detected using {mod} — violation #{violations} — action: {action} — matched keys: {keys}"
+
+# =====================================================================
+# Violation storage
+# =====================================================================
+storage:
+  # File in the plugin folder where per-player violation counts are saved.
+  file: "violations.yml"
+
+  # Reset a player's violations for a mod after this many days without a new
+  # detection (0 = never reset).
+  reset-after-days: 30
+
+# =====================================================================
+# Banned mods & actions
+# =====================================================================
+# Each entry under `mods` is one mod to detect.
+#
+# Fields per mod:
+#   display-name    Human-readable name shown in messages/commands.
+#   enabled         Whether this mod is actively tested (default: true).
+#   keys            List of translation keys the client should NOT have.
+#                   If ANY of these come back translated, the mod is flagged.
+#   actions         List of actions triggered at violation thresholds.
+#
+# Fields per action:
+#   threshold       Trigger when the player's violation count for this mod
+#                   reaches this number (1 = first offense).
+#   commands        List of console commands to run (executed in order).
+#   broadcast       Optional message broadcast to the whole server.
+#   staff-only      If true, broadcast only to staff (antimod.notify).
+#   message         Optional message sent to the offending player before
+#                   commands run (useful for warnings).
+#
+# Placeholders (in all commands/messages):
+#   {player}        Player name
+#   {uuid}          Player UUID
+#   {mod}           Mod display name
+#   {mod-id}        Config key (e.g. "meteor-client")
+#   {violations}    Current violation count for this mod
+#   {keys}          Comma-separated list of matched translation keys
+# =====================================================================
+mods:
+
+  # ---------------- Severe cheat clients: instant ban ----------------
+
+  meteor-client:
+    display-name: "Meteor Client"
+    enabled: true
+    keys:
+      - "key.meteor-client.open-gui"
+      - "text.autoconfig.meteor-client.title"
+    actions:
+      - threshold: 1
+        commands:
+          - "litebans:ban {player} 25d Cheating ({mod})"
+        broadcast: "&c[AntiMod] &e{player} &chas been banned for using &4{mod}&c!"
+
+  wurst-client:
+    display-name: "Wurst Client"
+    enabled: true
+    keys:
+      - "key.wurst.togglegui"
+      - "key.wurst.zoom"
+    actions:
+      - threshold: 1
+        commands:
+          - "litebans:ban {player} 25d Cheating ({mod})"
+        broadcast: "&c[AntiMod] &e{player} &chas been banned for using &4{mod}&c!"
+
+  # AutoTotem module (Meteor addon and standalone versions)
+  autototem:
+    display-name: "AutoTotem"
+    enabled: true
+    keys:
+      - "key.autototem.toggle"
+    actions:
+      - threshold: 1
+        commands:
+          - "litebans:ban {player} 20d Cheating ({mod})"
+        broadcast: "&c[AntiMod] &e{player} &chas been banned for using &4{mod}&c!"
+
+  # ---------------- Medium-severity: warn, then ban ----------------
+
+  freecam:
+    display-name: "Freecam"
+    enabled: true
+    keys:
+      - "key.freecam.toggle"
+      - "key.freecam.tripod_reset"
+    actions:
+      - threshold: 1
+        commands:
+          - "kick {player} &c&lRemove {mod} before rejoining!&r &7(Warning 1/3)"
+        broadcast: "&e[AntiMod] &e{player} &7was kicked for using &c{mod} &7(warning 1/3)"
+      - threshold: 2
+        commands:
+          - "kick {player} &c&lFinal warning: remove {mod}!&r &7(Warning 2/3)"
+        broadcast: "&e[AntiMod] &e{player} &7was kicked for using &c{mod} &7(warning 2/3)"
+      - threshold: 3
+        commands:
+          - "litebans:ban {player} 14d Cheating ({mod}) - Repeated warnings ignored"
+        broadcast: "&c[AntiMod] &e{player} &chas been banned for repeatedly using &4{mod}&c!"
+
+  # ItemScroller / Carpet Ctrl+Q crafting (config-key example)
+  itemscroller:
+    display-name: "Item Scroller"
+    enabled: true
+    keys:
+      - "itemscroller.config.generic.name.carpetCtrlQCraftingEnabledOnServer"
+    actions:
+      - threshold: 1
+        message: "&c[AntiMod] &7Please disable &c{mod}&7. This is a warning."
+        broadcast: "&e[AntiMod] &e{player} &7was warned for using &c{mod}"
+      - threshold: 3
+        commands:
+          - "kick {player} &cRemove {mod} before rejoining!"
+      - threshold: 5
+        commands:
+          - "litebans:ban {player} 3d Using {mod} despite repeated warnings"
+
+  # ---------------- Detection-only (no action) example ----------------
+  # Useful for keeping tabs on mods you don't ban but want to know about.
+  # xaeros-minimap:
+  #   display-name: "Xaero's Minimap"
+  #   enabled: false
+  #   keys:
+  #     - "key.xaero_open_map"
+  #     - "key.xaero_zoom_in"
+  #   actions:
+  #     - threshold: 1
+  #       broadcast: "&e[AntiMod] &e{player} &7is using &b{mod} &7(allowed, informational)"
+  #       staff-only: true
