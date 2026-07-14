@@ -23,11 +23,20 @@ public final class PlayerJoinListener implements Listener {
         if (!plugin.getConfigManager().isOnJoinEnabled()) return;
         if (event.getPlayer().hasPermission("antimod.bypass")) return;
 
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+        Runnable probe = () -> {
             if (event.getPlayer().isOnline()) {
                 manager.runFullDetection(event.getPlayer());
             }
-        }, plugin.getConfigManager().getJoinDelayTicks());
+        };
+
+        // 0 (or less) = probe as early as possible, on the very next tick, so the
+        // whole sweep runs while the client is still on the loading screen.
+        int delay = plugin.getConfigManager().getJoinDelayTicks();
+        if (delay <= 0) {
+            Bukkit.getScheduler().runTask(plugin, probe);
+        } else {
+            Bukkit.getScheduler().runTaskLater(plugin, probe, delay);
+        }
     }
 
     @EventHandler

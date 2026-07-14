@@ -17,8 +17,10 @@ detection:
   on-join: true
 
   # Delay after join before running detection (in ticks; 20 ticks = 1 second).
-  # Give the client time to finish loading resources before probing.
-  join-delay-ticks: 40
+  # 0 = probe immediately (next tick), while the client is still on the loading
+  # screen — this is the fastest and most silent. Raise it only if a client
+  # needs time to settle before it will answer probes.
+  join-delay-ticks: 0
 
   # Run detection periodically for online players.
   periodic:
@@ -31,7 +33,9 @@ detection:
 
   # The phantom sign is placed relative to the player's current position.
   # It must be within render distance or the client will ignore it.
-  # This offset is subtracted from the player's Y coordinate (100 = 100 blocks below).
+  # This offset is added ABOVE the player's Y coordinate (100 = 100 blocks up).
+  # If going up would pass the world height limit, it is placed below instead.
+  # When several signs are probed at once they stack upward from this point.
   sign-y-offset: 100
 
   # The fallback text sent alongside each translation key.
@@ -46,8 +50,9 @@ detection:
   close-delay-ticks: 0
 
   # Keys to test per sign (each sign has 4 lines, so max is 4).
-  # Using 1 is the safest: one key per sign, sent sequentially.
-  # Higher values are faster but pack multiple keys into one sign.
+  # All signs are sent at once regardless; this just controls how many keys
+  # are packed into each sign. 1 = one key per sign (most signs, clearest
+  # attribution); 4 = fewer signs, each carrying up to four keys.
   keys-per-sign: 1
 
 # =====================================================================
