@@ -39,14 +39,12 @@ Everything is in `config.yml`. Key knobs:
 ```yaml
 detection:
   on-join: true              # probe every player on join
-  join-delay-ticks: 40       # wait 2s after join for client to settle
+  join-delay-ticks: 0        # 0 = probe immediately, during the loading screen
   periodic:
     enabled: false           # re-probe online players periodically
     interval: 600            # ...every 10 minutes
-  sign-position:             # phantom sign position (never actually placed)
-    x: 159575
-    y: 89
-    z: 58081
+  sign-y-offset: 100         # phantom sign 100 blocks above the player
+                             # (falls back below if it would hit the height cap)
   fallback-marker: "am_fb"   # anything else means "mod is present"
 
 mods:

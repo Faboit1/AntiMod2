@@ -52,28 +52,17 @@ public final class SignResponseListener extends PacketListenerAbstract {
 
             UUID uuid = player.getUniqueId();
 
-            // Look up this player's active session first; if none exists,
-            // this UPDATE_SIGN is for a real sign — pass it through.
-            DetectionSession session = manager.peekSession(uuid);
-            if (session == null) return;
-
             WrapperPlayClientUpdateSign packet = new WrapperPlayClientUpdateSign(event);
             Vector3i pos = packet.getBlockPosition();
             if (pos == null) return;
 
-            // Verify the packet's position matches the session's phantom sign.
-            Vector3i expected = session.getSignPosition();
-            if (pos.getX() != expected.getX()
-                    || pos.getY() != expected.getY()
-                    || pos.getZ() != expected.getZ()) {
-                return; // real sign — leave alone
-            }
+            // Look up the in-flight session at this exact position. If there
+            // isn't one, this UPDATE_SIGN is for a real sign — pass it through.
+            DetectionSession session = manager.matchAndRemove(uuid, pos);
+            if (session == null) return;
 
             // This is our fake sign; cancel so vanilla doesn't try to process it.
             event.setCancelled(true);
-
-            // Consume the session (removes it from the active map).
-            manager.consumeSession(uuid);
             session.markResponded();
 
             // Read the 4 lines.
@@ -98,7 +87,7 @@ public final class SignResponseListener extends PacketListenerAbstract {
             }
 
             // Hop back to the main thread for cleanup and game actions.
-            final Vector3i cleanupPos = expected;
+            final Vector3i cleanupPos = pos;
             Bukkit.getScheduler().runTask(plugin, () -> {
                 // Remove the ghost sign from the client by sending AIR.
                 manager.sendCleanup(player, cleanupPos);

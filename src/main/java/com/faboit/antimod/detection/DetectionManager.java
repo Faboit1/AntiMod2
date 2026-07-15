@@ -9,19 +9,23 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Owns the detection lifecycle:
  *   - deciding what to probe
  *   - packing keys into signs (up to 4 keys / lines per sign)
- *   - sending each probe via SignPacketSender
+ *   - firing every probe at once via SignPacketSender
  *   - accepting responses from SignResponseListener
  *   - handing detections off to ActionExecutor
+ *
+ * All of a player's probes are dispatched in a single burst (each sign at its
+ * own stacked position) so the whole sweep completes during the join / loading
+ * screen instead of trickling out one sign at a time.
  */
 public final class DetectionManager {
 
@@ -29,11 +33,8 @@ public final class DetectionManager {
     private final SignPacketSender packetSender;
     private final ActionExecutor actionExecutor;
 
-    /** One live session per player; each session covers one sign (up to 4 keys). */
-    private final Map<UUID, DetectionSession> activeSessions = new ConcurrentHashMap<>();
-
-    /** Queued follow-up probes (for players with more mods to check than fit in one sign). */
-    private final Map<UUID, List<PendingProbe>> queuedProbes = new ConcurrentHashMap<>();
+    /** All in-flight sessions per player — one per phantom sign in the burst. */
+    private final Map<UUID, List<DetectionSession>> activeSessions = new ConcurrentHashMap<>();
 
     public DetectionManager(AntiMod plugin, ActionExecutor actionExecutor) {
         this.plugin = plugin;
@@ -43,18 +44,17 @@ public final class DetectionManager {
 
     /**
      * Kicks off a full detection cycle for the given player: enumerates every
-     * enabled mod, packs their keys into 4-line signs, and dispatches them.
+     * enabled mod, packs their keys into signs, and fires them all immediately.
      */
     public void runFullDetection(Player player) {
         if (player == null || !player.isOnline()) return;
         if (player.hasPermission("antimod.bypass")) return;
 
         ConfigManager cfg = plugin.getConfigManager();
-        Collection<ModConfig> mods = cfg.getMods().values();
 
         // Build a flat list of (modId, key) pairs from every enabled mod.
         List<PendingProbe> probes = new ArrayList<>();
-        for (ModConfig mod : mods) {
+        for (ModConfig mod : cfg.getMods().values()) {
             if (!mod.isEnabled()) continue;
             for (String key : mod.getTranslationKeys()) {
                 probes.add(new PendingProbe(mod.getId(), key));
@@ -63,79 +63,75 @@ public final class DetectionManager {
         if (probes.isEmpty()) return;
 
         int keysPerSign = cfg.getKeysPerSign();
-
-        // Break into batches of `keysPerSign`.
         UUID uuid = player.getUniqueId();
-        List<PendingProbe> queue = new ArrayList<>();
-        for (int i = keysPerSign; i < probes.size(); i++) {
-            queue.add(probes.get(i));
+
+        // Drop any stale sessions from a previous, still-pending run.
+        List<DetectionSession> stale = activeSessions.remove(uuid);
+        if (stale != null) {
+            for (DetectionSession s : stale) {
+                if (!s.isResponded()) packetSender.sendCleanup(player, s.getSignPosition());
+            }
         }
-        if (!queue.isEmpty()) {
-            queuedProbes.put(uuid, queue);
-        } else {
-            queuedProbes.remove(uuid);
+
+        // Pack probes into signs (up to keysPerSign lines each), one session per
+        // sign, each at its own stacked position.
+        List<DetectionSession> sessions = new ArrayList<>();
+        int signIndex = 0;
+        for (int start = 0; start < probes.size(); start += keysPerSign) {
+            int end = Math.min(start + keysPerSign, probes.size());
+            Vector3i pos = packetSender.computeSignPosition(player, signIndex);
+            DetectionSession session = new DetectionSession(uuid, cfg.getFallbackMarker(), pos);
+            for (int i = start; i < end; i++) {
+                PendingProbe p = probes.get(i);
+                session.addLine(i - start, p.modId, p.key);
+            }
+            sessions.add(session);
+            signIndex++;
         }
 
-        List<PendingProbe> firstBatch = probes.subList(0, Math.min(keysPerSign, probes.size()));
-        dispatchBatch(player, firstBatch);
-    }
-
-    /**
-     * Sends a single sign carrying up to `keysPerSign` probes.
-     */
-    private void dispatchBatch(Player player, List<PendingProbe> batch) {
-        if (player == null || !player.isOnline() || batch.isEmpty()) return;
-
-        UUID uuid = player.getUniqueId();
-        ConfigManager cfg = plugin.getConfigManager();
-
-        Vector3i pos = packetSender.computeSignPosition(player);
-        DetectionSession session = new DetectionSession(uuid, cfg.getFallbackMarker(), pos);
-        for (int i = 0; i < batch.size() && i < cfg.getKeysPerSign(); i++) {
-            PendingProbe p = batch.get(i);
-            session.addLine(i, p.modId, p.key);
+        // Register every session up-front, then fire them all in one burst — no
+        // waiting for a response between signs.
+        List<DetectionSession> batch = new CopyOnWriteArrayList<>(sessions);
+        activeSessions.put(uuid, batch);
+        for (DetectionSession session : sessions) {
+            packetSender.send(player, session);
         }
-        activeSessions.put(uuid, session);
-        packetSender.send(player, session);
 
-        // Schedule a timeout — if no response arrives, clean up the ghost sign,
-        // discard the session, and try the next queued batch if any.
+        // Timeout: after the configured window, discard any sessions that never
+        // got a response and clean up their ghost signs. Only touch our own
+        // batch — a newer run for this player may have superseded it.
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            DetectionSession current = activeSessions.get(uuid);
-            if (current != null && current == session && !current.isResponded()) {
-                activeSessions.remove(uuid);
-                if (player.isOnline()) {
-                    packetSender.sendCleanup(player, session.getSignPosition());
+            if (!activeSessions.remove(uuid, batch)) return;
+            if (!player.isOnline()) return;
+            for (DetectionSession s : batch) {
+                if (!s.isResponded()) {
+                    packetSender.sendCleanup(player, s.getSignPosition());
                 }
-                dispatchNextQueued(player);
             }
         }, cfg.getResponseTimeoutTicks());
     }
 
     /**
-     * Returns (without removing) the current session for the player, or null.
-     * Used by the listener to check if an UPDATE_SIGN belongs to us.
+     * Called by the response listener. Finds the in-flight session for this
+     * player whose phantom sign is at {@code pos}, removes it, and returns it —
+     * or null if this UPDATE_SIGN is for a real sign we didn't send.
      */
-    public DetectionSession peekSession(UUID uuid) {
-        return activeSessions.get(uuid);
-    }
-
-    /**
-     * Called by the response listener. Returns and removes the current session
-     * for the player, or null if none.
-     */
-    public DetectionSession consumeSession(UUID uuid) {
-        DetectionSession session = activeSessions.remove(uuid);
-        if (session != null) {
-            // Move on to the next queued batch (if any) after this one resolves.
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline()) {
-                Bukkit.getScheduler().runTaskLater(plugin,
-                        () -> dispatchNextQueued(player),
-                        Math.max(1, plugin.getConfigManager().getCloseDelayTicks() + 2));
+    public DetectionSession matchAndRemove(UUID uuid, Vector3i pos) {
+        List<DetectionSession> sessions = activeSessions.get(uuid);
+        if (sessions == null) return null;
+        for (DetectionSession s : sessions) {
+            Vector3i sp = s.getSignPosition();
+            if (sp.getX() == pos.getX() && sp.getY() == pos.getY() && sp.getZ() == pos.getZ()) {
+                sessions.remove(s);
+                // Drop the mapping once empty, but only if it's still this exact
+                // batch (a newer run may have replaced it).
+                if (sessions.isEmpty()) {
+                    activeSessions.remove(uuid, sessions);
+                }
+                return s;
             }
         }
-        return session;
+        return null;
     }
 
     /**
@@ -143,25 +139,6 @@ public final class DetectionManager {
      */
     public void sendCleanup(Player player, Vector3i pos) {
         packetSender.sendCleanup(player, pos);
-    }
-
-    private void dispatchNextQueued(Player player) {
-        UUID uuid = player.getUniqueId();
-        List<PendingProbe> queue = queuedProbes.get(uuid);
-        if (queue == null || queue.isEmpty()) {
-            queuedProbes.remove(uuid);
-            return;
-        }
-        int keysPerSign = plugin.getConfigManager().getKeysPerSign();
-        int take = Math.min(keysPerSign, queue.size());
-        List<PendingProbe> next = new ArrayList<>(queue.subList(0, take));
-        List<PendingProbe> remaining = new ArrayList<>(queue.subList(take, queue.size()));
-        if (remaining.isEmpty()) {
-            queuedProbes.remove(uuid);
-        } else {
-            queuedProbes.put(uuid, remaining);
-        }
-        dispatchBatch(player, next);
     }
 
     /**
@@ -179,7 +156,6 @@ public final class DetectionManager {
 
     public void onPlayerQuit(UUID uuid) {
         activeSessions.remove(uuid);
-        queuedProbes.remove(uuid);
     }
 
     private record PendingProbe(String modId, String key) {}

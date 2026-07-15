@@ -40,14 +40,31 @@ public final class SignPacketSender {
     }
 
     /**
-     * Computes the phantom sign position relative to the player.
-     * Same X/Z as the player, Y offset downward by the configured amount.
+     * Computes the phantom sign position for the given sign index.
+     *
+     * The base position is {@code sign-y-offset} blocks ABOVE the player, and
+     * each successive sign is stacked one block higher so a whole batch can be
+     * probed at once without positions colliding. If stacking upward would pass
+     * the world height limit, it falls back to placing the sign below the player
+     * instead. The result is always clamped inside the world's build range.
      */
-    public Vector3i computeSignPosition(Player player) {
+    public Vector3i computeSignPosition(Player player, int index) {
         int offset = plugin.getConfigManager().getSignYOffset();
+        int baseY = player.getLocation().getBlockY();
+        int minY = player.getWorld().getMinHeight();
+        int maxY = player.getWorld().getMaxHeight() - 1; // highest valid block Y
+
+        int y;
+        if (baseY + offset + index <= maxY) {
+            y = baseY + offset + index;   // preferred: `offset` above, stacked upward
+        } else {
+            y = baseY - offset - index;   // fallback: below the player, stacked downward
+        }
+        y = Math.max(minY, Math.min(maxY, y));
+
         return new Vector3i(
                 player.getLocation().getBlockX(),
-                player.getLocation().getBlockY() - offset,
+                y,
                 player.getLocation().getBlockZ()
         );
     }

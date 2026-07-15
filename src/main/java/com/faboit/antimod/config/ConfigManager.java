@@ -53,7 +53,7 @@ public final class ConfigManager {
 
         // --- detection ---
         onJoinEnabled = cfg.getBoolean("detection.on-join", true);
-        joinDelayTicks = cfg.getInt("detection.join-delay-ticks", 40);
+        joinDelayTicks = cfg.getInt("detection.join-delay-ticks", 0);
         periodicEnabled = cfg.getBoolean("detection.periodic.enabled", false);
         periodicIntervalSeconds = cfg.getInt("detection.periodic.interval", 600);
         responseTimeoutTicks = cfg.getInt("detection.response-timeout-ticks", 100);
