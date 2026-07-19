@@ -5,6 +5,7 @@ import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.config.ModConfig;
+import com.faboit.antimod.util.FloodgateUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -51,6 +52,11 @@ public final class DetectionManager {
         if (player.hasPermission("antimod.bypass")) return;
 
         ConfigManager cfg = plugin.getConfigManager();
+
+        // Skip Floodgate players if disabled in config
+        if (FloodgateUtil.isFloodgatePlayer(player) && !cfg.isFloodgateEnabled()) {
+            return;
+        }
 
         // Build a flat list of (modId, key) pairs from every enabled mod.
         List<PendingProbe> probes = new ArrayList<>();
