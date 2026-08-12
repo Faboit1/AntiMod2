@@ -11,6 +11,7 @@ Inspired by the technique used on DonutSMP.
 - **Paper 1.21.6** (also works on later 1.21.x; other versions untested)
 - **PacketEvents 2.13.0+** — https://github.com/retrooper/packetevents/releases
 - **Java 21**
+- **Floodgate** (optional) — for detecting mods on Bedrock/Xbox players via Geyser
 
 ## Installation
 
@@ -149,6 +150,7 @@ Every push to `main` builds and uploads the jar as a workflow artifact. Tag a re
 - **False positives:** the fallback comparison is exact. If a mod happens to translate its key to literally `am_fb`, change `detection.fallback-marker` to something more unique.
 - **Anti-cheat sensitivity:** because this uses raw packets and can trigger a rapid open/close of the sign editor, some clients with client-side anti-cheat or protocol validators may complain in their logs. Vanilla and standard modded clients handle it fine.
 - **Mod adaptability:** if a mod author becomes aware of this detection and changes their translation keys, add the new keys to config. The mechanism itself keeps working.
+- **Floodgate support:** if you have Geyser + Floodgate installed for Xbox/Bedrock players, AntiMod can detect mods on them too. Set `detection.floodgate-enabled: true` (default) to enable it, or `false` to skip Bedrock players. Requires Floodgate plugin to be installed on the server.
 
 ## License
 

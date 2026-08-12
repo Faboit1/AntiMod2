@@ -28,6 +28,7 @@ public final class ConfigManager {
     private String fallbackMarker;
     private int closeDelayTicks;
     private int keysPerSign;
+    private boolean floodgateEnabled;
 
     // Notifications
     private boolean consoleLog;
@@ -61,6 +62,7 @@ public final class ConfigManager {
         fallbackMarker = cfg.getString("detection.fallback-marker", "am_fb");
         closeDelayTicks = cfg.getInt("detection.close-delay-ticks", 0);
         keysPerSign = Math.max(1, Math.min(4, cfg.getInt("detection.keys-per-sign", 1)));
+        floodgateEnabled = cfg.getBoolean("detection.floodgate-enabled", true);
 
         // --- notifications ---
         consoleLog = cfg.getBoolean("notifications.console-log", true);
@@ -146,6 +148,7 @@ public final class ConfigManager {
     public String getFallbackMarker() { return fallbackMarker; }
     public int getCloseDelayTicks() { return closeDelayTicks; }
     public int getKeysPerSign() { return keysPerSign; }
+    public boolean isFloodgateEnabled() { return floodgateEnabled; }
 
     public boolean isConsoleLog() { return consoleLog; }
     public boolean isStaffBroadcast() { return staffBroadcast; }

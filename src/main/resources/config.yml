@@ -55,6 +55,11 @@ detection:
   # attribution); 4 = fewer signs, each carrying up to four keys.
   keys-per-sign: 1
 
+  # Enable detection for Floodgate (Bedrock/Xbox) players.
+  # Set to false to skip detection for players connecting via Geyser.
+  # Requires Floodgate plugin to be installed.
+  floodgate-enabled: true
+
 # =====================================================================
 # Notifications & logging
 # =====================================================================
