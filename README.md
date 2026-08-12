@@ -1,6 +1,6 @@
 # AntiMod
 
-Silent client-mod detection for Paper 1.21.6, using the sign / translation-key exploit.
+Silent client-mod detection for Paper 1.21.6, using the sign / translation-key exploit. **Fully compatible with Folia**.
 
 Sends a phantom sign to the client during the join sequence, packed with translation keys for banned mods. The client either resolves the key (mod is installed) or falls back to the marker (mod is absent). The client's `UPDATE_SIGN` reply reveals which mods are present. The whole handshake runs during the loading screen, invisibly.
 
@@ -15,7 +15,7 @@ Inspired by the technique used on DonutSMP.
 
 ## Installation
 
-1. Drop `AntiMod-1.0.0.jar` into `plugins/`.
+1. Drop `AntiMod-1.1.0.jar` into `plugins/`.
 2. Ensure `PacketEvents` is also in `plugins/`.
 3. Start the server once to generate `plugins/AntiMod/config.yml`.
 4. Edit `config.yml` to configure the mods and actions you want.
@@ -137,11 +137,11 @@ mods:
 mvn clean package
 ```
 
-Output: `target/AntiMod-1.0.0.jar`
+Output: `target/AntiMod-1.1.0.jar`
 
 ## Building via GitHub Actions
 
-Every push to `main` builds and uploads the jar as a workflow artifact. Tag a release as `v1.0.0` (or similar) to have the jar attached to a GitHub release automatically.
+Every push to `main` builds and uploads the jar as a workflow artifact. Tag a release as `v1.1.0` (or similar) to have the jar attached to a GitHub release automatically.
 
 ## Notes and caveats
 
@@ -151,6 +151,7 @@ Every push to `main` builds and uploads the jar as a workflow artifact. Tag a re
 - **Anti-cheat sensitivity:** because this uses raw packets and can trigger a rapid open/close of the sign editor, some clients with client-side anti-cheat or protocol validators may complain in their logs. Vanilla and standard modded clients handle it fine.
 - **Mod adaptability:** if a mod author becomes aware of this detection and changes their translation keys, add the new keys to config. The mechanism itself keeps working.
 - **Floodgate support:** if you have Geyser + Floodgate installed for Xbox/Bedrock players, AntiMod can detect mods on them too. Set `detection.floodgate-enabled: true` (default) to enable it, or `false` to skip Bedrock players. Requires Floodgate plugin to be installed on the server.
+- **Folia support:** AntiMod is fully compatible with Folia (Paper's multi-threaded region scheduler). Detection tasks automatically use Folia's region scheduler when available, and fall back to Bukkit's standard scheduler on regular Paper servers.
 
 ## License
 

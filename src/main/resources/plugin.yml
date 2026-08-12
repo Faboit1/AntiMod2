@@ -8,6 +8,7 @@ website: https://github.com/Faboit1/AntiMod
 depend: [packetevents]
 softdepend: [floodgate]
 load: POSTWORLD
+folia-supported: true
 
 commands:
   antimod:
