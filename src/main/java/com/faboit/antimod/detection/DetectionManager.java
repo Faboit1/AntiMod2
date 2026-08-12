@@ -6,6 +6,7 @@ import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.config.ModConfig;
 import com.faboit.antimod.util.FloodgateUtil;
+import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -106,7 +107,7 @@ public final class DetectionManager {
         // Timeout: after the configured window, discard any sessions that never
         // got a response and clean up their ghost signs. Only touch our own
         // batch — a newer run for this player may have superseded it.
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+        FoliaScheduler.runTaskLater(plugin, player, () -> {
             if (!activeSessions.remove(uuid, batch)) return;
             if (!player.isOnline()) return;
             for (DetectionSession s : batch) {

@@ -6,6 +6,7 @@ import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.detection.SignResponseListener;
 import com.faboit.antimod.listener.PlayerJoinListener;
+import com.faboit.antimod.util.FoliaScheduler;
 import com.faboit.antimod.violation.ViolationManager;
 import com.github.retrooper.packetevents.PacketEvents;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
@@ -77,7 +78,8 @@ public final class AntiMod extends JavaPlugin {
             }, ticks, ticks);
         }
 
-        getLogger().info("AntiMod enabled. Monitoring " + configManager.getMods().size() + " mods.");
+        String foliaStatus = FoliaScheduler.isFoliaAvailable() ? " (Folia-compatible)" : "";
+        getLogger().info("AntiMod enabled. Monitoring " + configManager.getMods().size() + " mods." + foliaStatus);
     }
 
     @Override
