@@ -2,7 +2,7 @@ package com.faboit.antimod.listener;
 
 import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.detection.DetectionManager;
-import org.bukkit.Bukkit;
+import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -29,13 +29,11 @@ public final class PlayerJoinListener implements Listener {
             }
         };
 
-        // 0 (or less) = probe as early as possible, on the very next tick, so the
-        // whole sweep runs while the client is still on the loading screen.
         int delay = plugin.getConfigManager().getJoinDelayTicks();
         if (delay <= 0) {
-            Bukkit.getScheduler().runTask(plugin, probe);
+            FoliaScheduler.runTask(plugin, event.getPlayer(), probe);
         } else {
-            Bukkit.getScheduler().runTaskLater(plugin, probe, delay);
+            FoliaScheduler.runTaskLater(plugin, event.getPlayer(), probe, delay);
         }
     }
 

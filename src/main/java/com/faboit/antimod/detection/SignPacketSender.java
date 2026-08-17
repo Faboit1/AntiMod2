@@ -14,7 +14,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBl
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockEntityData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerCloseWindow;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerOpenSignEditor;
-import org.bukkit.Bukkit;
+import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.entity.Player;
 
 import java.util.logging.Level;
@@ -98,7 +98,7 @@ public final class SignPacketSender {
             if (closeDelay <= 0) {
                 sendCloseWindow(player);
             } else {
-                Bukkit.getScheduler().runTaskLater(plugin,
+                FoliaScheduler.runTaskLater(plugin, player,
                         () -> sendCloseWindow(player),
                         closeDelay);
             }

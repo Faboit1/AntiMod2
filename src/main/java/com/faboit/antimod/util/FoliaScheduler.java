@@ -1,124 +1,175 @@
 package com.faboit.antimod.util;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 import java.lang.reflect.Method;
+import java.util.function.Consumer;
 
 /**
- * Utility for scheduling tasks that works on both Bukkit and Folia.
- * Automatically uses Folia's region scheduler when available, falls back to Bukkit.
+ * Scheduler abstraction that works on both Bukkit/Paper and Folia.
+ *
+ * Folia removes the global BukkitScheduler entirely — calling
+ * Bukkit.getScheduler().runTask*() throws UnsupportedOperationException.
+ * Instead, Folia provides:
+ *   - Entity.getScheduler() for tasks tied to a specific entity
+ *   - Server.getGlobalRegionScheduler() for global (non-entity) tasks
+ *
+ * All Folia methods are invoked via reflection to avoid a compile-time
+ * dependency, so this plugin works on both Paper and Folia unchanged.
  */
 public final class FoliaScheduler {
 
-    private static final boolean FOLIA_AVAILABLE;
-    private static final Method SCHEDULE_DELAYED_TASK_METHOD;
-    private static final Method GET_REGION_SCHEDULER_METHOD;
+    private static final boolean FOLIA;
+
+    // Entity.getScheduler()
+    private static Method entityGetScheduler;
+    // EntityScheduler.run(Plugin, Consumer<ScheduledTask>, Runnable retired)
+    private static Method entitySchedulerRun;
+    // EntityScheduler.runDelayed(Plugin, Consumer<ScheduledTask>, Runnable retired, long delayTicks)
+    private static Method entitySchedulerRunDelayed;
+    // Server.getGlobalRegionScheduler()
+    private static Method serverGetGlobalScheduler;
+    // GlobalRegionScheduler.run(Plugin, Consumer<ScheduledTask>)
+    private static Method globalSchedulerRun;
+    // GlobalRegionScheduler.runDelayed(Plugin, Consumer<ScheduledTask>, long delayTicks)
+    private static Method globalSchedulerRunDelayed;
+    // GlobalRegionScheduler.runAtFixedRate(Plugin, Consumer<ScheduledTask>, long initialDelayTicks, long periodTicks)
+    private static Method globalSchedulerRunAtFixedRate;
 
     static {
-        boolean foliaAvailable = false;
-        Method scheduleMethod = null;
-        Method getRegionMethod = null;
-
+        boolean folia = false;
         try {
-            Class.forName("io.papermc.paper.threadedregions.scheduler.RegionScheduler");
-            foliaAvailable = true;
+            Class<?> entitySchedulerClass = Class.forName(
+                    "io.papermc.paper.threadedregions.scheduler.EntityScheduler");
+            Class<?> globalSchedulerClass = Class.forName(
+                    "io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
+            Class<?> scheduledTaskClass = Class.forName(
+                    "io.papermc.paper.threadedregions.scheduler.ScheduledTask");
 
-            Class<?> serverClass = Class.forName("org.bukkit.Server");
-            getRegionMethod = serverClass.getMethod("getRegionScheduler");
+            entityGetScheduler = Entity.class.getMethod("getScheduler");
 
-            Class<?> regionSchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.RegionScheduler");
-            scheduleMethod = regionSchedulerClass.getMethod("execute", Plugin.class, java.lang.Runnable.class, int.class, int.class, long.class);
+            entitySchedulerRun = entitySchedulerClass.getMethod(
+                    "run", Plugin.class, Consumer.class, Runnable.class);
+            entitySchedulerRunDelayed = entitySchedulerClass.getMethod(
+                    "runDelayed", Plugin.class, Consumer.class, Runnable.class, long.class);
+
+            serverGetGlobalScheduler = Bukkit.getServer().getClass().getMethod("getGlobalRegionScheduler");
+
+            globalSchedulerRun = globalSchedulerClass.getMethod(
+                    "run", Plugin.class, Consumer.class);
+            globalSchedulerRunDelayed = globalSchedulerClass.getMethod(
+                    "runDelayed", Plugin.class, Consumer.class, long.class);
+            globalSchedulerRunAtFixedRate = globalSchedulerClass.getMethod(
+                    "runAtFixedRate", Plugin.class, Consumer.class, long.class, long.class);
+
+            folia = true;
         } catch (Exception ignored) {
-            foliaAvailable = false;
         }
-
-        FOLIA_AVAILABLE = foliaAvailable;
-        SCHEDULE_DELAYED_TASK_METHOD = scheduleMethod;
-        GET_REGION_SCHEDULER_METHOD = getRegionMethod;
+        FOLIA = folia;
     }
 
     public static boolean isFoliaAvailable() {
-        return FOLIA_AVAILABLE;
+        return FOLIA;
     }
 
     /**
-     * Schedules a task to run after a delay (in ticks).
-     * On Folia, uses the region scheduler for the given player's region.
-     * On Bukkit, uses the standard scheduler.
+     * Runs a task on the next tick, tied to the given entity's region.
+     * Falls back to Bukkit.getScheduler().runTask() on non-Folia.
      */
-    public static void runTaskLater(Plugin plugin, Player player, Runnable task, long delayTicks) {
-        if (!FOLIA_AVAILABLE || player == null) {
-            Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
+    public static void runTask(Plugin plugin, Entity entity, Runnable task) {
+        if (!FOLIA) {
+            Bukkit.getScheduler().runTask(plugin, task);
             return;
         }
-
         try {
-            Object regionScheduler = GET_REGION_SCHEDULER_METHOD.invoke(Bukkit.getServer());
-            SCHEDULE_DELAYED_TASK_METHOD.invoke(
-                    regionScheduler,
-                    plugin,
-                    task,
-                    player.getChunk().getX(),
-                    player.getChunk().getZ(),
-                    delayTicks
-            );
+            Object scheduler = entityGetScheduler.invoke(entity);
+            entitySchedulerRun.invoke(scheduler, plugin,
+                    (Consumer<Object>) t -> task.run(), null);
         } catch (Exception e) {
-            Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
+            Bukkit.getLogger().warning("[AntiMod] Folia entity scheduler failed: " + e.getMessage());
         }
     }
 
     /**
-     * Schedules a repeating task.
-     * On Folia, uses the region scheduler for the given player's region.
-     * On Bukkit, uses the standard scheduler.
+     * Runs a task after a delay, tied to the given entity's region.
+     * Falls back to Bukkit.getScheduler().runTaskLater() on non-Folia.
      */
-    public static void runTaskTimer(Plugin plugin, Player player, Runnable task, long initialDelayTicks, long repeatTicks) {
-        if (!FOLIA_AVAILABLE || player == null) {
-            Bukkit.getScheduler().runTaskTimer(plugin, task, initialDelayTicks, repeatTicks);
+    public static void runTaskLater(Plugin plugin, Entity entity, Runnable task, long delayTicks) {
+        if (!FOLIA) {
+            Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
             return;
         }
-
+        if (delayTicks <= 0) {
+            runTask(plugin, entity, task);
+            return;
+        }
         try {
-            Object regionScheduler = GET_REGION_SCHEDULER_METHOD.invoke(Bukkit.getServer());
-            Method repeatMethod = regionScheduler.getClass().getMethod("scheduleAtFixedRate", Plugin.class, java.util.function.Consumer.class, int.class, int.class, long.class, long.class);
-            repeatMethod.invoke(
-                    regionScheduler,
-                    plugin,
-                    (java.util.function.Consumer<Object>) ctx -> task.run(),
-                    player.getChunk().getX(),
-                    player.getChunk().getZ(),
-                    initialDelayTicks,
-                    repeatTicks
-            );
+            Object scheduler = entityGetScheduler.invoke(entity);
+            entitySchedulerRunDelayed.invoke(scheduler, plugin,
+                    (Consumer<Object>) t -> task.run(), null, delayTicks);
         } catch (Exception e) {
-            Bukkit.getScheduler().runTaskTimer(plugin, task, initialDelayTicks, repeatTicks);
+            Bukkit.getLogger().warning("[AntiMod] Folia entity scheduler failed: " + e.getMessage());
         }
     }
 
     /**
-     * Schedules a global task (not tied to a specific player/region).
-     * On Folia, uses the global region scheduler.
-     * On Bukkit, uses the standard scheduler.
+     * Runs a task on the next tick on the global region (not tied to any entity).
+     * Falls back to Bukkit.getScheduler().runTask() on non-Folia.
      */
-    public static void runTaskLaterGlobal(Plugin plugin, Runnable task, long delayTicks) {
-        if (!FOLIA_AVAILABLE) {
+    public static void runGlobalTask(Plugin plugin, Runnable task) {
+        if (!FOLIA) {
+            Bukkit.getScheduler().runTask(plugin, task);
+            return;
+        }
+        try {
+            Object scheduler = serverGetGlobalScheduler.invoke(Bukkit.getServer());
+            globalSchedulerRun.invoke(scheduler, plugin,
+                    (Consumer<Object>) t -> task.run());
+        } catch (Exception e) {
+            Bukkit.getLogger().warning("[AntiMod] Folia global scheduler failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Runs a task after a delay on the global region.
+     * Falls back to Bukkit.getScheduler().runTaskLater() on non-Folia.
+     */
+    public static void runGlobalTaskLater(Plugin plugin, Runnable task, long delayTicks) {
+        if (!FOLIA) {
             Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
             return;
         }
-
+        if (delayTicks <= 0) {
+            runGlobalTask(plugin, task);
+            return;
+        }
         try {
-            Object regionScheduler = GET_REGION_SCHEDULER_METHOD.invoke(Bukkit.getServer());
-            SCHEDULE_DELAYED_TASK_METHOD.invoke(
-                    regionScheduler,
-                    plugin,
-                    task,
-                    0,
-                    0,
-                    delayTicks
-            );
+            Object scheduler = serverGetGlobalScheduler.invoke(Bukkit.getServer());
+            globalSchedulerRunDelayed.invoke(scheduler, plugin,
+                    (Consumer<Object>) t -> task.run(), delayTicks);
         } catch (Exception e) {
-            Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
+            Bukkit.getLogger().warning("[AntiMod] Folia global scheduler failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Runs a repeating task on the global region.
+     * Falls back to Bukkit.getScheduler().runTaskTimer() on non-Folia.
+     */
+    public static void runGlobalTaskTimer(Plugin plugin, Runnable task, long initialDelayTicks, long periodTicks) {
+        if (!FOLIA) {
+            Bukkit.getScheduler().runTaskTimer(plugin, task, initialDelayTicks, periodTicks);
+            return;
+        }
+        try {
+            Object scheduler = serverGetGlobalScheduler.invoke(Bukkit.getServer());
+            long initDelay = Math.max(1, initialDelayTicks);
+            long period = Math.max(1, periodTicks);
+            globalSchedulerRunAtFixedRate.invoke(scheduler, plugin,
+                    (Consumer<Object>) t -> task.run(), initDelay, period);
+        } catch (Exception e) {
+            Bukkit.getLogger().warning("[AntiMod] Folia global scheduler failed: " + e.getMessage());
         }
     }
 
