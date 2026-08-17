@@ -8,6 +8,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientUpdateSign;
+import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -86,10 +87,9 @@ public final class SignResponseListener extends PacketListenerAbstract {
                 detected.merge(modId, probedKey, (a, b) -> a + "," + b);
             }
 
-            // Hop back to the main thread for cleanup and game actions.
+            // Hop back to the entity's region thread for cleanup and game actions.
             final Vector3i cleanupPos = pos;
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                // Remove the ghost sign from the client by sending AIR.
+            FoliaScheduler.runTask(plugin, player, () -> {
                 manager.sendCleanup(player, cleanupPos);
 
                 for (Map.Entry<String, String> e : detected.entrySet()) {
