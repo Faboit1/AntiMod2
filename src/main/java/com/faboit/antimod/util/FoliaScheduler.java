@@ -36,6 +36,8 @@ public final class FoliaScheduler {
     private static Method globalSchedulerRunDelayed;
     // GlobalRegionScheduler.runAtFixedRate(Plugin, Consumer<ScheduledTask>, long initialDelayTicks, long periodTicks)
     private static Method globalSchedulerRunAtFixedRate;
+    // Server.isOwnedByCurrentRegion(Entity)
+    private static Method serverIsOwnedByCurrentRegion;
 
     static {
         boolean folia = false;
@@ -63,6 +65,13 @@ public final class FoliaScheduler {
             globalSchedulerRunAtFixedRate = globalSchedulerClass.getMethod(
                     "runAtFixedRate", Plugin.class, Consumer.class, long.class, long.class);
 
+            try {
+                serverIsOwnedByCurrentRegion =
+                        Bukkit.getServer().getClass().getMethod("isOwnedByCurrentRegion", Entity.class);
+            } catch (Exception ignored) {
+                serverIsOwnedByCurrentRegion = null;
+            }
+
             folia = true;
         } catch (Exception ignored) {
         }
@@ -71,6 +80,35 @@ public final class FoliaScheduler {
 
     public static boolean isFoliaAvailable() {
         return FOLIA;
+    }
+
+    /**
+     * Whether the calling thread may already touch the given entity's world state.
+     */
+    public static boolean isOwnedByCurrentThread(Entity entity) {
+        if (!FOLIA) return Bukkit.isPrimaryThread();
+        if (serverIsOwnedByCurrentRegion == null) return false;
+        try {
+            return Boolean.TRUE.equals(serverIsOwnedByCurrentRegion.invoke(Bukkit.getServer(), entity));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Runs a task against the entity's region, immediately if the caller is
+     * already on the owning thread and on the next tick otherwise.
+     *
+     * Use this at the entry point of anything that reads world state: it makes
+     * the call safe from any thread without paying an extra tick of latency
+     * when it was already on the right one.
+     */
+    public static void runNowOrSoon(Plugin plugin, Entity entity, Runnable task) {
+        if (isOwnedByCurrentThread(entity)) {
+            task.run();
+            return;
+        }
+        runTask(plugin, entity, task);
     }
 
     /**

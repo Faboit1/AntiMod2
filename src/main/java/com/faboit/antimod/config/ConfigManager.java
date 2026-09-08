@@ -54,13 +54,17 @@ public final class ConfigManager {
 
         // --- detection ---
         onJoinEnabled = cfg.getBoolean("detection.on-join", true);
-        joinDelayTicks = cfg.getInt("detection.join-delay-ticks", 0);
+        joinDelayTicks = Math.max(0, cfg.getInt("detection.join-delay-ticks", 0));
         periodicEnabled = cfg.getBoolean("detection.periodic.enabled", false);
-        periodicIntervalSeconds = cfg.getInt("detection.periodic.interval", 600);
-        responseTimeoutTicks = cfg.getInt("detection.response-timeout-ticks", 100);
-        signYOffset = cfg.getInt("detection.sign-y-offset", 100);
+        periodicIntervalSeconds = Math.max(1, cfg.getInt("detection.periodic.interval", 600));
+        // At least one tick: a zero/negative window would retire every sweep
+        // before the client could possibly answer it.
+        responseTimeoutTicks = Math.max(1, cfg.getInt("detection.response-timeout-ticks", 100));
+        // At least one block away, so a phantom sign never lands on the
+        // player's own block.
+        signYOffset = Math.max(1, cfg.getInt("detection.sign-y-offset", 100));
         fallbackMarker = cfg.getString("detection.fallback-marker", "am_fb");
-        closeDelayTicks = cfg.getInt("detection.close-delay-ticks", 0);
+        closeDelayTicks = Math.max(0, cfg.getInt("detection.close-delay-ticks", 0));
         keysPerSign = Math.max(1, Math.min(4, cfg.getInt("detection.keys-per-sign", 1)));
         floodgateEnabled = cfg.getBoolean("detection.floodgate-enabled", true);
 

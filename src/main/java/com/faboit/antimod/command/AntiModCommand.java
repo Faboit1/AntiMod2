@@ -90,7 +90,7 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
             return;
         }
-        detection.runFullDetection(target);
+        detection.runFullDetection(target, true);
         sender.sendMessage(Component.text("[AntiMod] Detection dispatched for " + target.getName() + ".",
                 NamedTextColor.GREEN));
     }
