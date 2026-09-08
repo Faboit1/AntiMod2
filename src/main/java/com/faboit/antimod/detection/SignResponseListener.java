@@ -9,7 +9,6 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientUpdateSign;
 import com.faboit.antimod.util.FoliaScheduler;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.LinkedHashMap;
@@ -59,12 +58,19 @@ public final class SignResponseListener extends PacketListenerAbstract {
 
             // Look up the in-flight session at this exact position. If there
             // isn't one, this UPDATE_SIGN is for a real sign — pass it through.
-            DetectionSession session = manager.matchAndRemove(uuid, pos);
-            if (session == null) return;
+            DetectionManager.Match match = manager.matchAndRemove(uuid, pos);
+            if (match == null) return;
+
+            DetectionSession session = match.session();
+            ProbeBatch batch = match.batch();
 
             // This is our fake sign; cancel so vanilla doesn't try to process it.
             event.setCancelled(true);
             session.markResponded();
+
+            // Clear the ghost sign straight away. Packet sends are thread-safe,
+            // so this does not need to wait for a server tick.
+            manager.sendCleanup(player, pos);
 
             // Read the 4 lines.
             String[] lines = packet.getTextLines();
@@ -72,7 +78,7 @@ public final class SignResponseListener extends PacketListenerAbstract {
 
             // Compare each line to the fallback marker; anything else means
             // the mod translated the key.
-            Map<String, String> detected = new LinkedHashMap<>();
+            Map<String, String> answered = new LinkedHashMap<>();
             for (int i = 0; i < lines.length && i < 4; i++) {
                 if (!session.hasLine(i)) continue;
                 String modId = session.getModAt(i);
@@ -84,14 +90,27 @@ public final class SignResponseListener extends PacketListenerAbstract {
                 }
                 if (returned.isEmpty()) continue;
 
-                detected.merge(modId, probedKey, (a, b) -> a + "," + b);
+                answered.merge(modId, probedKey, (a, b) -> a + "," + b);
             }
+            if (answered.isEmpty()) return;
 
-            // Hop back to the entity's region thread for cleanup and game actions.
-            final Vector3i cleanupPos = pos;
-            FoliaScheduler.runTask(plugin, player, () -> {
-                manager.sendCleanup(player, cleanupPos);
+            // A mod with several probed keys answers on several signs. Only the
+            // first sign to flag it counts, so one sweep is one offense per mod
+            // rather than one per key — otherwise a warn/kick/ban ladder skips
+            // its intermediate rungs.
+            Map<String, String> detected = new LinkedHashMap<>();
+            for (Map.Entry<String, String> e : answered.entrySet()) {
+                if (batch.flagMod(e.getKey())) {
+                    detected.put(e.getKey(), e.getValue());
+                }
+            }
+            if (detected.isEmpty()) return;
 
+            // Hop to the global region thread for the game-facing actions:
+            // console commands and broadcasts must not run from a Netty thread,
+            // and the global scheduler (unlike the player's entity scheduler)
+            // still runs the task if the player disconnects first.
+            FoliaScheduler.runGlobalTask(plugin, () -> {
                 for (Map.Entry<String, String> e : detected.entrySet()) {
                     manager.handleDetection(player, e.getKey(), e.getValue());
                 }

@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Level;
 
 /**
  * Runs the configured action(s) for a detected mod: increments the
@@ -47,41 +48,77 @@ public final class ActionExecutor {
         placeholders.put("keys", matchedKeys == null ? "" : matchedKeys);
         placeholders.put("action", action == null ? "NONE" : action.describe());
 
-        // Notify staff / console regardless of whether an action fires.
-        notify(player, mod, placeholders);
+        // Notify staff / console regardless of whether an action fires. A
+        // malformed message must not stop the punishment that follows it, so
+        // every messaging step below is isolated from the command dispatch.
+        try {
+            notify(player, mod, placeholders);
+        } catch (Throwable t) {
+            plugin.getLogger().log(Level.WARNING, "Failed to send the detection notification.", t);
+        }
 
         if (action == null) return;
 
         // Player message (before commands, so they can see the warning before being kicked).
         if (action.getMessage() != null && !action.getMessage().isEmpty()) {
-            Component msg = legacy.deserialize(applyPlaceholders(action.getMessage(), placeholders));
-            player.sendMessage(msg);
+            try {
+                Component msg = legacy.deserialize(applyPlaceholders(action.getMessage(), placeholders));
+                player.sendMessage(msg);
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.WARNING, "Failed to send the action message.", t);
+            }
         }
 
         // Broadcast
         if (action.getBroadcast() != null && !action.getBroadcast().isEmpty()) {
-            String rawText = applyPlaceholders(action.getBroadcast(), placeholders);
-            Component broadcastComp = legacy.deserialize(rawText);
-            if (action.isStaffOnly()) {
-                for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.hasPermission("antimod.notify")) {
-                        p.sendMessage(broadcastComp);
+            try {
+                String rawText = applyPlaceholders(action.getBroadcast(), placeholders);
+                Component broadcastComp = legacy.deserialize(rawText);
+                if (action.isStaffOnly()) {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (p.hasPermission("antimod.notify")) {
+                            p.sendMessage(broadcastComp);
+                        }
                     }
+                    Bukkit.getConsoleSender().sendMessage(broadcastComp);
+                } else {
+                    Bukkit.broadcast(broadcastComp);
                 }
-                Bukkit.getConsoleSender().sendMessage(broadcastComp);
-            } else {
-                Bukkit.broadcast(broadcastComp);
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.WARNING, "Failed to send the action broadcast.", t);
             }
         }
 
         // Commands (console-executed)
         for (String cmd : action.getCommands()) {
-            String finalCmd = applyPlaceholders(cmd, placeholders);
-            try {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), finalCmd);
-            } catch (Throwable t) {
-                plugin.getLogger().warning("Failed to execute command: " + finalCmd + " - " + t.getMessage());
+            runConsoleCommand(applyPlaceholders(cmd, placeholders));
+        }
+    }
+
+    /**
+     * Dispatches one configured command from the console.
+     *
+     * The command is normalised first: Bukkit expects the bare command line, so
+     * a leading slash — which is how most people write commands in a config —
+     * would otherwise be dispatched as the literal command "/kick" and silently
+     * do nothing. A command Bukkit could not run at all is logged rather than
+     * dropped, since a missing punishment is the whole failure mode here.
+     */
+    private void runConsoleCommand(String rawCommand) {
+        String cmd = rawCommand == null ? "" : rawCommand.trim();
+        while (cmd.startsWith("/")) {
+            cmd = cmd.substring(1).trim();
+        }
+        if (cmd.isEmpty()) return;
+
+        try {
+            if (!Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd)) {
+                plugin.getLogger().warning("Command did not run: \"" + cmd
+                        + "\" - the server rejected it (unknown command, or the plugin that "
+                        + "provides it is not installed).");
             }
+        } catch (Throwable t) {
+            plugin.getLogger().log(Level.WARNING, "Failed to execute command: " + cmd, t);
         }
     }
 

@@ -17,6 +17,8 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerOp
 import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 
 /**
@@ -40,33 +42,56 @@ public final class SignPacketSender {
     }
 
     /**
-     * Computes the phantom sign position for the given sign index.
+     * Computes {@code count} distinct phantom sign positions for the player.
      *
-     * The base position is {@code sign-y-offset} blocks ABOVE the player, and
-     * each successive sign is stacked one block higher so a whole batch can be
-     * probed at once without positions colliding. If stacking upward would pass
-     * the world height limit, it falls back to placing the sign below the player
-     * instead. The result is always clamped inside the world's build range.
+     * Every sign in a sweep needs its own block position: the client only keeps
+     * one block entity per position, so two probes sharing a position means the
+     * second silently overwrites the first and only one of them is ever
+     * answered. The positions are therefore laid out as a contiguous vertical
+     * run that is guaranteed to fit inside the world's build range:
+     *
+     *   - preferred: {@code sign-y-offset} blocks above the player, stacking up
+     *   - if the run would pass the world height limit: the same distance below
+     *     the player, stacking up from there
+     *   - if neither fits (low-ceiling worlds such as the Nether, where the
+     *     configured offset can exceed the whole build range): the run is
+     *     placed at whichever end of the world is farther from the player
+     *
+     * Only if the world had fewer valid Y levels than there are signs — which
+     * no vanilla dimension does — would the run spill into the neighbouring
+     * block column, and even then every position stays unique.
      */
-    public Vector3i computeSignPosition(Player player, int index) {
+    public List<Vector3i> computeSignPositions(Player player, int count) {
+        if (count <= 0) return List.of();
+
         int offset = plugin.getConfigManager().getSignYOffset();
+        int baseX = player.getLocation().getBlockX();
         int baseY = player.getLocation().getBlockY();
+        int baseZ = player.getLocation().getBlockZ();
         int minY = player.getWorld().getMinHeight();
         int maxY = player.getWorld().getMaxHeight() - 1; // highest valid block Y
 
-        int y;
-        if (baseY + offset + index <= maxY) {
-            y = baseY + offset + index;   // preferred: `offset` above, stacked upward
-        } else {
-            y = baseY - offset - index;   // fallback: below the player, stacked downward
-        }
-        y = Math.max(minY, Math.min(maxY, y));
+        int span = maxY - minY + 1;          // distinct Y levels available
+        int perColumn = Math.min(count, span);
+        int highestStart = maxY - perColumn + 1;
 
-        return new Vector3i(
-                player.getLocation().getBlockX(),
-                y,
-                player.getLocation().getBlockZ()
-        );
+        int startY;
+        if (baseY + offset <= highestStart) {
+            startY = baseY + offset;                    // preferred: above the player
+        } else if (baseY - offset - (perColumn - 1) >= minY) {
+            startY = baseY - offset - (perColumn - 1);  // fallback: below the player
+        } else if (maxY - baseY >= baseY - minY) {
+            startY = highestStart;                      // no room at the offset: hug the ceiling
+        } else {
+            startY = minY;                              // ...or the floor, whichever is farther
+        }
+        startY = Math.max(minY, Math.min(highestStart, startY));
+
+        List<Vector3i> positions = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            positions.add(new Vector3i(baseX + (i / perColumn), startY + (i % perColumn), baseZ));
+        }
+        return positions;
     }
 
     /**

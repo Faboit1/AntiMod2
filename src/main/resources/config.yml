@@ -32,6 +32,10 @@ detection:
     interval: 600
 
   # How long to wait for a client response before discarding the session.
+  # While a sweep is inside this window it owns the player's sign positions:
+  # automatic sweeps (join / periodic) will not start a second one on top of it,
+  # because that would overwrite the phantom signs on the client and throw away
+  # answers that are still in flight. `/antimod check` always probes anyway.
   response-timeout-ticks: 100
 
   # The phantom sign is placed relative to the player's current position.
@@ -39,6 +43,11 @@ detection:
   # This offset is added ABOVE the player's Y coordinate (100 = 100 blocks up).
   # If going up would pass the world height limit, it is placed below instead.
   # When several signs are probed at once they stack upward from this point.
+  # In a low-ceiling world (the Nether is only 128 blocks tall) an offset larger
+  # than the build range leaves no room either way; the signs are then placed at
+  # whichever end of the world is farther from the player. Every sign always
+  # gets its own block, since two signs on one block means only one of them is
+  # ever answered.
   sign-y-offset: 100
 
   # The fallback text sent alongside each translation key.
@@ -107,6 +116,7 @@ storage:
 #   threshold       Trigger when the player's violation count for this mod
 #                   reaches this number (1 = first offense).
 #   commands        List of console commands to run (executed in order).
+#                   Written without a leading slash; one is stripped if present.
 #   broadcast       Optional message broadcast to the whole server.
 #   staff-only      If true, broadcast only to staff (antimod.notify).
 #   message         Optional message sent to the offending player before
