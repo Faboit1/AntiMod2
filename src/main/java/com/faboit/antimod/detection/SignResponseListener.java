@@ -78,7 +78,7 @@ public final class SignResponseListener extends PacketListenerAbstract {
 
             // Compare each line to the fallback marker; anything else means
             // the mod translated the key.
-            Map<String, String> detected = new LinkedHashMap<>();
+            Map<String, String> answered = new LinkedHashMap<>();
             for (int i = 0; i < lines.length && i < 4; i++) {
                 if (!session.hasLine(i)) continue;
                 String modId = session.getModAt(i);
@@ -90,14 +90,20 @@ public final class SignResponseListener extends PacketListenerAbstract {
                 }
                 if (returned.isEmpty()) continue;
 
-                // A mod with several probed keys answers on several signs. Only
-                // the first sign to flag it counts, so one sweep is one offense
-                // rather than one per key.
-                if (!batch.flagMod(modId)) continue;
-
-                detected.merge(modId, probedKey, (a, b) -> a + "," + b);
+                answered.merge(modId, probedKey, (a, b) -> a + "," + b);
             }
+            if (answered.isEmpty()) return;
 
+            // A mod with several probed keys answers on several signs. Only the
+            // first sign to flag it counts, so one sweep is one offense per mod
+            // rather than one per key — otherwise a warn/kick/ban ladder skips
+            // its intermediate rungs.
+            Map<String, String> detected = new LinkedHashMap<>();
+            for (Map.Entry<String, String> e : answered.entrySet()) {
+                if (batch.flagMod(e.getKey())) {
+                    detected.put(e.getKey(), e.getValue());
+                }
+            }
             if (detected.isEmpty()) return;
 
             // Hop to the global region thread for the game-facing actions:
