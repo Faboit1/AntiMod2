@@ -74,23 +74,37 @@ public final class SignResponseListener extends PacketListenerAbstract {
 
             // Read the 4 lines.
             String[] lines = packet.getTextLines();
-            if (lines == null) return;
-
-            // Compare each line to the fallback marker; anything else means
-            // the mod translated the key.
             Map<String, String> answered = new LinkedHashMap<>();
-            for (int i = 0; i < lines.length && i < 4; i++) {
-                if (!session.hasLine(i)) continue;
-                String modId = session.getModAt(i);
-                String probedKey = session.getKeyAt(i);
-                String returned = lines[i];
+            try {
+                if (lines == null) return;
 
-                if (returned == null || returned.equals(session.getFallbackMarker())) {
-                    continue; // fallback — mod not present
+                // Compare each line to the fallback marker; anything else means
+                // the mod translated the key.
+                for (int i = 0; i < lines.length && i < 4; i++) {
+                    if (!session.hasLine(i)) continue;
+                    String modId = session.getModAt(i);
+                    String probedKey = session.getKeyAt(i);
+                    String returned = lines[i];
+
+                    boolean untranslated = returned == null || returned.isEmpty()
+                            || returned.equals(session.getFallbackMarker());
+                    // A vanilla client always answers with the fallback we
+                    // supplied, never with the key itself.
+                    boolean rawEcho = probedKey.equals(returned);
+
+                    if (session.isSpoofCheckLine(i)) {
+                        batch.recordSpoofAnswer(modId, probedKey, !untranslated && !rawEcho, rawEcho);
+                        continue;
+                    }
+                    if (rawEcho) batch.recordRawEcho(probedKey);
+                    if (untranslated) continue; // fallback — mod not present
+
+                    answered.merge(modId, probedKey, (a, b) -> a + "," + b);
                 }
-                if (returned.isEmpty()) continue;
-
-                answered.merge(modId, probedKey, (a, b) -> a + "," + b);
+            } finally {
+                // Every line of this sign is recorded; if it was the sweep's
+                // last one, the spoof check can be judged now.
+                manager.onSessionAnswered(player, batch);
             }
             if (answered.isEmpty()) return;
 

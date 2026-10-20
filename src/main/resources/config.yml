@@ -101,6 +101,76 @@ storage:
   reset-after-days: 30
 
 # =====================================================================
+# Spoof detection (OpSec, ExploitPreventer and similar)
+# =====================================================================
+# Some client mods stop translation keys from resolving on signs, so every
+# probe comes back as the fallback and banned mods go unseen. This check
+# catches clients whose answers contradict their plugin channels:
+#
+#   1. On join the client announces the plugin channels its mods listen on
+#      (minecraft:register). A channel such as "voicechat:..." proves that
+#      Simple Voice Chat is installed.
+#   2. Every sweep then also probes that mod's own translation keys.
+#   3. A real install always resolves them. If the channel is there but every
+#      key comes back as the fallback, the client is hiding translations.
+#
+# The mods used for this live in plugins/AntiMod/spoof-mods.yml (channels +
+# keys per mod). Add your own there; `/antimod channels <player>` shows what
+# a client registered.
+#
+# Note: by default, OpSec (AUTO whitelist) and ExploitPreventer both let the
+# keys of channel-registering mods resolve, so a default install answers
+# consistently and is NOT flagged. This catches stricter setups, e.g. keys
+# blocked for a mod whose channels are still visible.
+spoof-detection:
+  enabled: true
+
+  # Hold the join sweep until the client has announced its channels, so the
+  # channel-confirmed mods can be probed in that same sweep. Clients reporting
+  # the "vanilla" brand have no channels and are probed right away as usual.
+  wait-for-channels: true
+
+  # Longest wait for the announcement (ticks). A modded client that never
+  # sends one is probed after this delay.
+  channel-wait-ticks: 20
+
+  # The announcement can span several packets: probe this many ticks after
+  # the last one arrives.
+  channel-settle-ticks: 2
+
+  # How many channel-confirmed mods to probe per sweep (each adds up to 3
+  # keys). The first matches in spoof-mods.yml order are used.
+  max-mods-per-sweep: 8
+
+  # Flag once at least this many channel-confirmed mods hide all their keys.
+  # Raise it if a mod version without one of the listed keys gives a false
+  # positive.
+  min-hidden-mods: 1
+
+  # Also flag a client that echoes a probed key back verbatim. A vanilla
+  # client always answers with the fallback we supply, never the raw key.
+  flag-raw-key-echo: true
+
+  # The violation id ({mod-id}) and name ({mod}) used for this detection.
+  # `/antimod clear <player> translation-spoofer` resets it.
+  id: "translation-spoofer"
+  display-name: "Translation Spoofer"
+
+  # Same format as a mod's actions below. {keys} lists the evidence, e.g.
+  # "Simple Voice Chat [voicechat:secret]".
+  actions:
+    - threshold: 1
+      broadcast: "&e[AntiMod] &e{player} &7is hiding mod translations &8({keys})"
+      staff-only: true
+    # Example escalation - uncomment to enforce:
+    # - threshold: 2
+    #   commands:
+    #     - "kick {player} &cDisable translation-spoofing mods (OpSec, ExploitPreventer) to play here."
+    # - threshold: 3
+    #   commands:
+    #     - "litebans:ban {player} 7d Hiding client mods"
+
+# =====================================================================
 # Banned mods & actions
 # =====================================================================
 # Each entry under `mods` is one mod to detect.

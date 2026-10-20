@@ -3,7 +3,9 @@ package com.faboit.antimod.config;
 import com.faboit.antimod.AntiMod;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -42,6 +44,18 @@ public final class ConfigManager {
 
     // Mods (preserved insertion order)
     private Map<String, ModConfig> mods = Collections.emptyMap();
+
+    // Spoof detection
+    public static final String SPOOF_MODS_FILE = "spoof-mods.yml";
+    private boolean spoofEnabled;
+    private boolean spoofWaitForChannels;
+    private int spoofChannelWaitTicks;
+    private int spoofChannelSettleTicks;
+    private int spoofMinHiddenMods;
+    private int spoofMaxModsPerSweep;
+    private boolean spoofFlagRawKeyEcho;
+    private ModConfig spoofDetector;
+    private Map<String, SpoofModConfig> spoofMods = Collections.emptyMap();
 
     public ConfigManager(AntiMod plugin) {
         this.plugin = plugin;
@@ -92,21 +106,73 @@ public final class ConfigManager {
                 boolean enabled = m.getBoolean("enabled", true);
                 List<String> keys = m.getStringList("keys");
 
-                List<ActionConfig> actions = new ArrayList<>();
-                List<Map<?, ?>> actionMaps = m.getMapList("actions");
-                for (Map<?, ?> actionMap : actionMaps) {
-                    int threshold = coerceInt(actionMap.get("threshold"), 1);
-                    List<String> commands = coerceStringList(actionMap.get("commands"));
-                    String broadcast = coerceString(actionMap.get("broadcast"));
-                    boolean staffOnly = coerceBoolean(actionMap.get("staff-only"), false);
-                    String message = coerceString(actionMap.get("message"));
-                    actions.add(new ActionConfig(threshold, commands, broadcast, staffOnly, message));
-                }
-
-                modMap.put(modId, new ModConfig(modId, displayName, enabled, keys, actions));
+                modMap.put(modId, new ModConfig(modId, displayName, enabled, keys, parseActions(m)));
             }
         }
         this.mods = Collections.unmodifiableMap(modMap);
+
+        // --- spoof detection ---
+        spoofEnabled = cfg.getBoolean("spoof-detection.enabled", true);
+        spoofWaitForChannels = cfg.getBoolean("spoof-detection.wait-for-channels", true);
+        spoofChannelWaitTicks = Math.max(0, cfg.getInt("spoof-detection.channel-wait-ticks", 20));
+        spoofChannelSettleTicks = Math.max(0, cfg.getInt("spoof-detection.channel-settle-ticks", 2));
+        spoofMinHiddenMods = Math.max(1, cfg.getInt("spoof-detection.min-hidden-mods", 1));
+        spoofMaxModsPerSweep = Math.max(1, cfg.getInt("spoof-detection.max-mods-per-sweep", 8));
+        spoofFlagRawKeyEcho = cfg.getBoolean("spoof-detection.flag-raw-key-echo", true);
+        ConfigurationSection spoofSection = cfg.getConfigurationSection("spoof-detection");
+        spoofDetector = new ModConfig(
+                cfg.getString("spoof-detection.id", "translation-spoofer"),
+                cfg.getString("spoof-detection.display-name", "Translation Spoofer"),
+                spoofEnabled,
+                Collections.emptyList(),
+                spoofSection == null ? Collections.emptyList() : parseActions(spoofSection));
+        spoofMods = loadSpoofMods();
+    }
+
+    private static List<ActionConfig> parseActions(ConfigurationSection section) {
+        List<ActionConfig> actions = new ArrayList<>();
+        for (Map<?, ?> actionMap : section.getMapList("actions")) {
+            int threshold = coerceInt(actionMap.get("threshold"), 1);
+            List<String> commands = coerceStringList(actionMap.get("commands"));
+            String broadcast = coerceString(actionMap.get("broadcast"));
+            boolean staffOnly = coerceBoolean(actionMap.get("staff-only"), false);
+            String message = coerceString(actionMap.get("message"));
+            actions.add(new ActionConfig(threshold, commands, broadcast, staffOnly, message));
+        }
+        return actions;
+    }
+
+    /**
+     * Loads the channel/key cross-check list from spoof-mods.yml, writing the
+     * bundled default the first time.
+     */
+    private Map<String, SpoofModConfig> loadSpoofMods() {
+        File file = new File(plugin.getDataFolder(), SPOOF_MODS_FILE);
+        if (!file.exists()) {
+            plugin.saveResource(SPOOF_MODS_FILE, false);
+        }
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+
+        Map<String, SpoofModConfig> result = new LinkedHashMap<>();
+        ConfigurationSection section = yaml.getConfigurationSection("mods");
+        if (section == null) return Collections.emptyMap();
+        for (String id : section.getKeys(false)) {
+            ConfigurationSection m = section.getConfigurationSection(id);
+            if (m == null) continue;
+            List<String> channels = m.getStringList("channels");
+            List<String> keys = m.getStringList("keys");
+            if (channels.isEmpty() || keys.isEmpty()) {
+                plugin.getLogger().warning(SPOOF_MODS_FILE + ": '" + id
+                        + "' needs at least one channel and one key - skipped.");
+                continue;
+            }
+            result.put(id, new SpoofModConfig(id,
+                    m.getString("display-name", id),
+                    m.getBoolean("enabled", true),
+                    channels,
+                    keys));
+        }
+        return Collections.unmodifiableMap(result);
     }
 
     // --- coercion helpers (YAML map values are Object) ---
@@ -164,5 +230,25 @@ public final class ConfigManager {
 
     public Map<String, ModConfig> getMods() { return mods; }
 
-    public ModConfig getMod(String id) { return mods.get(id); }
+    /**
+     * Looks up a banned mod by id. The spoof detector is resolvable here too,
+     * so its violations show up and clear like any other mod's.
+     */
+    public ModConfig getMod(String id) {
+        ModConfig mod = mods.get(id);
+        if (mod == null && spoofDetector != null && spoofDetector.getId().equals(id)) {
+            return spoofDetector;
+        }
+        return mod;
+    }
+
+    public boolean isSpoofEnabled() { return spoofEnabled; }
+    public boolean isSpoofWaitForChannels() { return spoofWaitForChannels; }
+    public int getSpoofChannelWaitTicks() { return spoofChannelWaitTicks; }
+    public int getSpoofChannelSettleTicks() { return spoofChannelSettleTicks; }
+    public int getSpoofMinHiddenMods() { return spoofMinHiddenMods; }
+    public int getSpoofMaxModsPerSweep() { return spoofMaxModsPerSweep; }
+    public boolean isSpoofFlagRawKeyEcho() { return spoofFlagRawKeyEcho; }
+    public ModConfig getSpoofDetector() { return spoofDetector; }
+    public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }
 }

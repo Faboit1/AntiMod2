@@ -20,6 +20,7 @@ commands:
       /antimod violations <player> — Show a player's violation history
       /antimod clear <player> [mod] — Clear a player's violations
       /antimod info — Plugin info
+      /antimod channels <player> — Show a player's registered plugin channels
     aliases: [am]
 
 permissions:
