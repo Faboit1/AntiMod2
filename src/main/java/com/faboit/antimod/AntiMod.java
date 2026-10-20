@@ -91,7 +91,7 @@ public final class AntiMod extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (violationManager != null) violationManager.save();
+        if (violationManager != null) violationManager.close();
         if (PacketEvents.getAPI() != null) {
             PacketEvents.getAPI().terminate();
         }
