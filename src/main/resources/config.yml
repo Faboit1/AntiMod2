@@ -241,6 +241,48 @@ mod-scan:
   response-timeout-ticks: 100
 
 # =====================================================================
+# Pack check (/antimod check <player> --pack)
+# =====================================================================
+# Detects ExploitPreventer, which the translation-key probes can't: it lets
+# through the keys of every mod that registers a network channel. Instead
+# this looks at how the client downloads a server resource pack.
+# ExploitPreventer replaces Java's redirect handling with its own, which gives
+# up one redirect early. AntiMod serves a tiny empty pack behind exactly 19
+# redirects from its own small HTTP server:
+#   - a normal client follows them and reports the pack downloaded  -> clean
+#   - ExploitPreventer fetches the last hop, then reports the download
+#     as failed                                                     -> detected
+#   - declined / no answer / failed earlier                         -> inconclusive
+# The pack is removed again right after the answer. Players whose server
+# resource-pack setting is "Prompt" see a pack prompt (and a short resource
+# reload if they accept). On demand only: nothing runs on join.
+pack-check:
+  enabled: true
+
+  # The HTTP server. Players' clients download from it, so the port must be
+  # reachable from the internet (on Pterodactyl, add an allocation for it).
+  # 0 = off.
+  bind: "0.0.0.0"
+  port: 0
+
+  # The address players reach that port on, e.g. "http://play.example.com:25590".
+  public-url: ""
+
+  # Redirects before the pack. Keep 19: Java follows up to 19,
+  # ExploitPreventer only 18.
+  redirects: 19
+
+  # Text on the client's pack prompt. Empty = Minecraft's default text.
+  prompt: "&7Quick client check: this pack is empty and is removed right away."
+
+  # Give up after this long without an answer.
+  timeout-seconds: 60
+
+  # Also run the spoof-detection actions (kick by default) on a detection.
+  # Off: the result is only reported to whoever ran the check.
+  run-actions: false
+
+# =====================================================================
 # Banned mods & actions
 # =====================================================================
 # Each entry under `mods` is one mod to detect.

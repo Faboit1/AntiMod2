@@ -70,6 +70,16 @@ public final class ConfigManager {
     private int scanSlowSignsPerTick;
     private int scanResponseTimeoutTicks;
 
+    // --- pack check (/antimod check <player> --pack) ---
+    private boolean packCheckEnabled;
+    private String packCheckBind;
+    private int packCheckPort;
+    private String packCheckPublicUrl;
+    private int packCheckRedirects;
+    private String packCheckPrompt;
+    private int packCheckTimeoutSeconds;
+    private boolean packCheckRunActions;
+
     public ConfigManager(AntiMod plugin) {
         this.plugin = plugin;
     }
@@ -153,6 +163,16 @@ public final class ConfigManager {
         scanSignsPerTick = Math.max(0, cfg.getInt("mod-scan.signs-per-tick", 0));
         scanSlowSignsPerTick = Math.max(1, cfg.getInt("mod-scan.slow-signs-per-tick", 2));
         scanResponseTimeoutTicks = Math.max(1, cfg.getInt("mod-scan.response-timeout-ticks", 100));
+
+        // --- pack check ---
+        packCheckEnabled = cfg.getBoolean("pack-check.enabled", true);
+        packCheckBind = cfg.getString("pack-check.bind", "0.0.0.0");
+        packCheckPort = cfg.getInt("pack-check.port", 0);
+        packCheckPublicUrl = cfg.getString("pack-check.public-url", "").trim();
+        packCheckRedirects = Math.max(1, Math.min(30, cfg.getInt("pack-check.redirects", 19)));
+        packCheckPrompt = cfg.getString("pack-check.prompt", "").replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
+        packCheckTimeoutSeconds = Math.max(5, cfg.getInt("pack-check.timeout-seconds", 60));
+        packCheckRunActions = cfg.getBoolean("pack-check.run-actions", false);
         File catalogFile = new File(plugin.getDataFolder(), ModCatalog.FILE);
         if (!catalogFile.exists()) {
             plugin.saveResource(ModCatalog.FILE, false);
@@ -303,5 +323,14 @@ public final class ConfigManager {
     public int getScanSignsPerTick() { return scanSignsPerTick; }
     public int getScanSlowSignsPerTick() { return scanSlowSignsPerTick; }
     public int getScanResponseTimeoutTicks() { return scanResponseTimeoutTicks; }
+
+    public boolean isPackCheckEnabled() { return packCheckEnabled; }
+    public String getPackCheckBind() { return packCheckBind; }
+    public int getPackCheckPort() { return packCheckPort; }
+    public String getPackCheckPublicUrl() { return packCheckPublicUrl; }
+    public int getPackCheckRedirects() { return packCheckRedirects; }
+    public String getPackCheckPrompt() { return packCheckPrompt; }
+    public int getPackCheckTimeoutSeconds() { return packCheckTimeoutSeconds; }
+    public boolean isPackCheckRunActions() { return packCheckRunActions; }
     public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }
 }

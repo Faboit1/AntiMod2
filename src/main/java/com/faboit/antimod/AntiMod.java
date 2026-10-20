@@ -5,6 +5,7 @@ import com.faboit.antimod.command.AntiModCommand;
 import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.detection.ChannelTracker;
 import com.faboit.antimod.detection.DetectionManager;
+import com.faboit.antimod.detection.PackCheck;
 import com.faboit.antimod.detection.SignResponseListener;
 import com.faboit.antimod.listener.PlayerJoinListener;
 import com.faboit.antimod.listener.WorldLoadedListener;
@@ -26,6 +27,7 @@ public final class AntiMod extends JavaPlugin {
     private ConfigManager configManager;
     private ViolationManager violationManager;
     private DetectionManager detectionManager;
+    private PackCheck packCheck;
     private final List<PacketListenerCommon> packetListeners = new ArrayList<>();
     /** The instance AntiMod's listeners were registered on. */
     private PacketEventsAPI<?> packetEvents;
@@ -87,10 +89,15 @@ public final class AntiMod extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new WorldLoadedListener(joinListener), this);
         }
 
+        // On-demand resource-pack check (/antimod check <player> --pack)
+        this.packCheck = new PackCheck(this, actionExecutor);
+        packCheck.start();
+        getServer().getPluginManager().registerEvents(packCheck, this);
+
         // Command
         PluginCommand cmd = getCommand("antimod");
         if (cmd != null) {
-            AntiModCommand executor = new AntiModCommand(this, detectionManager, violationManager);
+            AntiModCommand executor = new AntiModCommand(this, detectionManager, violationManager, packCheck);
             cmd.setExecutor(executor);
             cmd.setTabCompleter(executor);
         }
@@ -117,6 +124,7 @@ public final class AntiMod extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (packCheck != null) packCheck.stop();
         if (violationManager != null) violationManager.save();
         if (packetEvents != null) {
             // Remove only AntiMod's own listeners: terminating the shared

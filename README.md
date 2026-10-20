@@ -123,7 +123,7 @@ When an entry fails for **5 different players** who verified every other mod in 
 - **Self-cleaning list:** entries that keep failing for players who verify everything else are disabled automatically (see above).
 - **Keys that exist in every build:** each key in `spoof-mods.yml` is present in **every** sampled build of its mod (Fabric, Quilt, Forge and NeoForge, MC 1.16.5+, newest and oldest build per MC release). It isn't a vanilla key, no other mod ships it, and its value is non-empty and safe in every language.
 
-**Limitation:** with their default settings, OpSec (AUTO whitelist) and ExploitPreventer let the keys of most channel-registering mods resolve, so the majority vote alone would clear them. A default OpSec install is caught through the trusted entries above, which it still hides. A client running none of those mods is caught only when its setup blocks keys for enough other mods whose channels are visible.
+**Limitation:** with their default settings, OpSec (AUTO whitelist) and ExploitPreventer let the keys of most channel-registering mods resolve, so the majority vote alone would clear them. A default OpSec install is caught through the trusted entries above, which it still hides. ExploitPreventer credits a mod's keys to any mod that registers its own network channel, so it hides none of them: use the pack check below. A client running none of those mods is caught only when its setup blocks keys for enough other mods whose channels are visible.
 
 **Proxy plugins:** a Velocity plugin that registers a trusted entry's channel (for example a Plasmo Voice proxy add-on) would put that channel on every player. Add its channels to `ignore-channels` before installing it.
 
@@ -136,6 +136,20 @@ When an entry fails for **5 different players** who verified every other mod in 
 - **Channels from unlisted mods:** channel namespaces that no catalog entry accounts for.
 
 The catalog is generated from the most downloaded client-side mods on Modrinth and the most downloaded mods on CurseForge, with one key per mod. Each key is present in every jar of its mod that was read, isn't a vanilla key, and isn't shipped by any other listed mod. A scan only reports: it never records violations or runs actions. The whole scan goes out at once and finishes in about a second; add `--slow` to spread it over about 10 seconds (`mod-scan.slow-signs-per-tick`) for players on weak machines or connections. Three keys share each sign line (`mod-scan.keys-per-line`), each tagged with a marker so the answer can be split back up, so the full catalog fits in roughly 400 signs. That matters because the client answers every sign with a packet, and ViaVersion kicks clients that send more than 800 a second. The signs sit in a small grid of columns above the player.
+
+## Pack check (`/antimod check <player> --pack`)
+
+Catches ExploitPreventer, which the key probes can't. ExploitPreventer replaces Java's redirect handling for server resource-pack downloads with its own loop, and that loop gives up one redirect early: Java follows up to 19 redirects, ExploitPreventer only 18. AntiMod serves a tiny empty pack behind exactly 19 redirects from a small HTTP server of its own, pushes it to the one player, and compares their answer with the requests its server actually saw:
+
+| Client answer | Verdict |
+|---|---|
+| Downloaded (or loaded) | clean |
+| Download failed, although the final hop was served | ExploitPreventer detected |
+| Declined, no answer, or failed before the final hop | inconclusive |
+
+The pack is removed again straight after the answer. It runs on demand only, never on join. Players whose server resource-pack setting is *Prompt* see a pack prompt, plus a short resource reload if they accept. The result goes to whoever ran the command. Set `pack-check.run-actions: true` to also run the spoof-detection actions (kick by default) on a detection.
+
+Setup: the HTTP server needs a port players can reach. On Pterodactyl, add an allocation, then set `pack-check.port` and `pack-check.public-url` (e.g. `http://play.example.com:25590`) in `config.yml` and restart.
 
 ### Placeholders
 
@@ -157,7 +171,7 @@ MiniMessage-style `<player>`, `<mod>`, etc. also work in the `staff-message` fie
 | Command                             | Description                              |
 |-------------------------------------|------------------------------------------|
 | `/antimod reload`                   | Reload `config.yml`                      |
-| `/antimod check <player>`           | Probe a player right now                 |
+| `/antimod check <player> [--pack]`  | Probe a player right now; `--pack` runs the ExploitPreventer pack check instead |
 | `/antimod violations <player>`      | Show a player's per-mod violation counts |
 | `/antimod clear <player> [mod]`     | Clear violations (all mods, or one)      |
 | `/antimod info`                     | List configured mods                     |

@@ -16,7 +16,7 @@ commands:
     permission: antimod.admin
     usage: |
       /antimod reload — Reload configuration
-      /antimod check <player> — Run detection on a player
+      /antimod check <player> [--pack] — Run detection on a player; --pack runs the resource-pack check
       /antimod violations <player> — Show a player's violation history
       /antimod clear <player> [mod] — Clear a player's violations
       /antimod info — Plugin info
