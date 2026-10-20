@@ -10,35 +10,52 @@ import com.faboit.antimod.listener.PlayerJoinListener;
 import com.faboit.antimod.util.FoliaScheduler;
 import com.faboit.antimod.violation.ViolationManager;
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
+import com.github.retrooper.packetevents.event.PacketListenerCommon;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public final class AntiMod extends JavaPlugin {
 
     private ConfigManager configManager;
     private ViolationManager violationManager;
     private DetectionManager detectionManager;
-
-    @Override
-    public void onLoad() {
-        if (getServer().getPluginManager().getPlugin("packetevents") == null) {
-            getLogger().severe("PacketEvents is not installed. AntiMod cannot function without it.");
-            return;
-        }
-        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this));
-        PacketEvents.getAPI().load();
-    }
+    private final List<PacketListenerCommon> packetListeners = new ArrayList<>();
+    /** The instance AntiMod's listeners were registered on. */
+    private PacketEventsAPI<?> packetEvents;
+    /** True only when AntiMod had to start its own PacketEvents instance (see onEnable). */
+    private boolean ownsPacketEvents;
 
     @Override
     public void onEnable() {
-        if (PacketEvents.getAPI() == null) {
+        if (getServer().getPluginManager().getPlugin("packetevents") == null) {
             getLogger().severe("PacketEvents is not installed. AntiMod cannot function without it.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        PacketEvents.getAPI().init();
+        // The PacketEvents plugin owns the shared API instance that every
+        // PacketEvents-based plugin registers on, so AntiMod only uses it and
+        // never shuts it down. The one exception: if it has already been shut
+        // down (an older AntiMod hot-unloaded with PlugMan terminates it on its
+        // way out), start a private instance so AntiMod still works.
+        PacketEventsAPI<?> shared = PacketEvents.getAPI();
+        if (shared == null || shared.isTerminated()) {
+            getLogger().warning("The shared PacketEvents instance has been shut down (an older AntiMod unloaded "
+                    + "at runtime does this). Starting AntiMod's own; other PacketEvents plugins need a server "
+                    + "restart to recover.");
+            PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this));
+            PacketEvents.getAPI().load();
+            PacketEvents.getAPI().init();
+            ownsPacketEvents = true;
+        } else if (!shared.isInitialized()) {
+            shared.init();
+        }
+        packetEvents = PacketEvents.getAPI();
 
         // Configuration
         this.configManager = new ConfigManager(this);
@@ -54,8 +71,11 @@ public final class AntiMod extends JavaPlugin {
         this.detectionManager = new DetectionManager(this, actionExecutor, channelTracker);
 
         // PacketEvents listeners: channel registrations and UPDATE_SIGN responses
+        SignResponseListener signListener = new SignResponseListener(this, detectionManager);
         channelTracker.register();
-        new SignResponseListener(this, detectionManager).register();
+        signListener.register();
+        packetListeners.add(channelTracker);
+        packetListeners.add(signListener);
 
         // Event listener for join/quit
         getServer().getPluginManager().registerEvents(
@@ -92,9 +112,16 @@ public final class AntiMod extends JavaPlugin {
     @Override
     public void onDisable() {
         if (violationManager != null) violationManager.save();
-        if (PacketEvents.getAPI() != null) {
-            PacketEvents.getAPI().terminate();
+        if (packetEvents != null) {
+            // Remove only AntiMod's own listeners: terminating the shared
+            // instance would cut packet handling for every other
+            // PacketEvents plugin until a restart.
+            for (PacketListenerCommon listener : packetListeners) {
+                packetEvents.getEventManager().unregisterListener(listener);
+            }
+            if (ownsPacketEvents) packetEvents.terminate();
         }
+        packetListeners.clear();
         getLogger().info("AntiMod disabled.");
     }
 
