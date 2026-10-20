@@ -123,7 +123,7 @@ When an entry fails for **5 different players** who verified every other mod in 
 - **Expected from channels:** the mods the player's plugin channels say they have, marked *verified* if their keys resolved, *keys hidden* if every key came back untranslated, *not in catalog* if there's no key for them, or *no answer*.
 - **Channels from unlisted mods:** channel namespaces that no catalog entry accounts for.
 
-The catalog is generated from the most downloaded client-side mods on Modrinth and the most downloaded mods on CurseForge, with one key per mod. Each key is present in every jar of its mod that was read, isn't a vanilla key, and isn't shipped by any other listed mod. A scan only reports: it never records violations or runs actions. The whole scan goes out at once and finishes in about a second. Three keys share each sign line (`mod-scan.keys-per-line`), each tagged with a marker so the answer can be split back up, so the full catalog fits in roughly 400 signs. That matters because the client answers every sign with a packet, and ViaVersion kicks clients that send more than 800 a second. The signs sit in a small grid of columns above the player.
+The catalog is generated from the most downloaded client-side mods on Modrinth and the most downloaded mods on CurseForge, with one key per mod. Each key is present in every jar of its mod that was read, isn't a vanilla key, and isn't shipped by any other listed mod. A scan only reports: it never records violations or runs actions. The whole scan goes out at once and finishes in about a second; add `--slow` to spread it over about 10 seconds (`mod-scan.slow-signs-per-tick`) for players on weak machines or connections. Three keys share each sign line (`mod-scan.keys-per-line`), each tagged with a marker so the answer can be split back up, so the full catalog fits in roughly 400 signs. That matters because the client answers every sign with a packet, and ViaVersion kicks clients that send more than 800 a second. The signs sit in a small grid of columns above the player.
 
 ### Placeholders
 
@@ -150,7 +150,7 @@ MiniMessage-style `<player>`, `<mod>`, etc. also work in the `staff-message` fie
 | `/antimod clear <player> [mod]`     | Clear violations (all mods, or one)      |
 | `/antimod info`                     | List configured mods                     |
 | `/antimod channels <player>`        | Show a player's registered plugin channels |
-| `/antimod mods <player>`            | Scan a player for known mods (report only) |
+| `/antimod mods <player> [--slow]`   | Scan a player for known mods (report only); `--slow` spreads it over ~10 s |
 
 Alias: `/am`
 

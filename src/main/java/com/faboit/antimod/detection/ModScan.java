@@ -105,7 +105,8 @@ public final class ModScan {
         }
         List<String> notes = new ArrayList<>();
         if (expected.values().stream().anyMatch(s -> s.equals("(keys hidden)"))) {
-            notes.add("keys hidden = channel registered but every key came back untranslated");
+            notes.add("keys hidden = channel registered but every key came back untranslated, "
+                    + "the mark translation-hiding mods such as OpSec leave");
         }
         if (ignored > 0) notes.add(ignored + " proxy/ignored channel(s) left out");
         if (unanswered > 0) notes.add(unanswered + " of " + signCount + " signs got no answer");

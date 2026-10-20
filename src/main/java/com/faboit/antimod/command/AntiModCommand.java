@@ -76,8 +76,9 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
                 .append(Component.text(" - list configured mods", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/antimod channels <player>", NamedTextColor.AQUA)
                 .append(Component.text(" - show a player's registered plugin channels", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/antimod mods <player>", NamedTextColor.AQUA)
-                .append(Component.text(" - scan a player for known mods (report only)", NamedTextColor.GRAY)));
+        sender.sendMessage(Component.text("/antimod mods <player> [--slow]", NamedTextColor.AQUA)
+                .append(Component.text(" - scan a player for known mods (report only); --slow spreads it out",
+                        NamedTextColor.GRAY)));
     }
 
     private void reload(CommandSender sender) {
@@ -175,7 +176,7 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
 
     private void mods(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage(Component.text("Usage: /antimod mods <player>", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Usage: /antimod mods <player> [--slow]", NamedTextColor.RED));
             return;
         }
         Player target = Bukkit.getPlayerExact(args[1]);
@@ -183,7 +184,8 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
             return;
         }
-        detection.runModScan(target, sender);
+        boolean slow = Arrays.stream(args).skip(2).anyMatch(a -> a.equalsIgnoreCase("--slow"));
+        detection.runModScan(target, sender, slow);
     }
 
     private void channels(CommandSender sender, String[] args) {
@@ -242,6 +244,9 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             List<String> names = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers()) names.add(p.getName());
             return filter(names, args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("mods")) {
+            return filter(List.of("--slow"), args[2]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("clear")) {
             List<String> ids = new ArrayList<>(plugin.getConfigManager().getMods().keySet());

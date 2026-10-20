@@ -226,6 +226,11 @@ mod-scan:
   # Set a number to pace it at that many signs per tick instead.
   signs-per-tick: 0
 
+  # Pace used by `/antimod mods <player> --slow`, for players on weak machines
+  # or connections: 2 signs a tick is about 40 answers a second, so a full
+  # scan takes around 10 seconds.
+  slow-signs-per-tick: 2
+
   # How long to wait for answers after the last sign went out (ticks).
   response-timeout-ticks: 100
 

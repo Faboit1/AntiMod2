@@ -363,11 +363,16 @@ public final class DetectionManager {
      * of {@code mod-scan.signs-per-tick} so a large catalog doesn't arrive as
      * one burst.
      */
-    public void runModScan(Player target, CommandSender requester) {
-        FoliaScheduler.runNowOrSoon(plugin, target, () -> runModScanNow(target, requester));
+    public void runModScan(Player target, CommandSender requester, boolean slow) {
+        FoliaScheduler.runNowOrSoon(plugin, target, () -> runModScanNow(target, requester, slow));
     }
 
-    private void runModScanNow(Player target, CommandSender requester) {
+    /**
+     * @param slow pace the signs at {@code mod-scan.slow-signs-per-tick}
+     *             instead of sending them all at once, for players on weak
+     *             machines or connections
+     */
+    private void runModScanNow(Player target, CommandSender requester, boolean slow) {
         if (!target.isOnline()) {
             requester.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
             return;
@@ -447,13 +452,15 @@ public final class DetectionManager {
                     + " is being probed right now; try again in a moment.", NamedTextColor.YELLOW));
             return;
         }
+        int perTick = slow ? cfg.getScanSlowSignsPerTick() : cfg.getScanSignsPerTick();
+        String pace = perTick > 0
+                ? ", about " + Math.max(1, (signCount + perTick * 20 - 1) / (perTick * 20)) + "s" : "";
         requester.sendMessage(Component.text("[AntiMod] Scanning " + target.getName() + " for "
-                + names.size() + " mods (" + signCount + " signs)...", NamedTextColor.GRAY));
+                + names.size() + " mods (" + signCount + " signs" + pace + ")...", NamedTextColor.GRAY));
 
         // Every sign gets a reply. ViaVersion kicks clients sending over 800
         // packets a second, so "all at once" (signs-per-tick 0) still splits a
         // huge scan into bursts of MAX_BURST signs a second apart.
-        int perTick = cfg.getScanSignsPerTick();
         int burst = perTick > 0 ? perTick : MAX_BURST;
         int gap = perTick > 0 ? 1 : 20;
         int waves = (signCount + burst - 1) / burst;

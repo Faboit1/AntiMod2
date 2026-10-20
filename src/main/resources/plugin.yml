@@ -21,7 +21,7 @@ commands:
       /antimod clear <player> [mod] — Clear a player's violations
       /antimod info — Plugin info
       /antimod channels <player> — Show a player's registered plugin channels
-      /antimod mods <player> — Scan a player for known mods (report only)
+      /antimod mods <player> [--slow] — Scan a player for known mods (report only)
     aliases: [am]
 
 permissions:

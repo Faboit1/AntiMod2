@@ -67,6 +67,7 @@ public final class ConfigManager {
     private volatile ModCatalog catalog = ModCatalog.empty();
     private int scanKeysPerLine;
     private int scanSignsPerTick;
+    private int scanSlowSignsPerTick;
     private int scanResponseTimeoutTicks;
 
     public ConfigManager(AntiMod plugin) {
@@ -150,6 +151,7 @@ public final class ConfigManager {
         // --- mod scan ---
         scanKeysPerLine = Math.max(1, Math.min(3, cfg.getInt("mod-scan.keys-per-line", 3)));
         scanSignsPerTick = Math.max(0, cfg.getInt("mod-scan.signs-per-tick", 0));
+        scanSlowSignsPerTick = Math.max(1, cfg.getInt("mod-scan.slow-signs-per-tick", 2));
         scanResponseTimeoutTicks = Math.max(1, cfg.getInt("mod-scan.response-timeout-ticks", 100));
         File catalogFile = new File(plugin.getDataFolder(), ModCatalog.FILE);
         if (!catalogFile.exists()) {
@@ -298,6 +300,7 @@ public final class ConfigManager {
     public ModCatalog getCatalog() { return catalog; }
     public int getScanKeysPerLine() { return scanKeysPerLine; }
     public int getScanSignsPerTick() { return scanSignsPerTick; }
+    public int getScanSlowSignsPerTick() { return scanSlowSignsPerTick; }
     public int getScanResponseTimeoutTicks() { return scanResponseTimeoutTicks; }
     public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }
 }

@@ -1720,7 +1720,7 @@ mods:
   transport: {name: "Transport", keys: ["itemGroup.transport"]}
   underwater_village: {name: "Underwater Village - Oceanic Structures", keys: ["itemGroup.underwater_village"]}
   adtetra: {name: "Ad Tetra!", keys: ["tetra.material.desh"]}
-  cpm: {name: "Customizable Player Models", keys: ["key.cpm.qa_1"]}
+  cpm: {name: "Customizable Player Models", keys: ["key.cpm.qa_1"], channels: ["cpm_net:*"]}
   nyctophobia: {name: "Nyctophobia (Fabric/Neoforge)", keys: ["commands.nyctophobia.fog.on"]}
   easy_mob_farm: {name: "Easy Mob Farm", keys: ["itemGroup.easy_mob_farm.mob_farms"]}
   armoroftheages: {name: "Armor of the Ages", keys: ["itemGroup.armoroftheages"]}
@@ -2078,7 +2078,7 @@ mods:
   shieldlib: {name: "Shield Lib", keys: ["shieldlib.midnightconfig.title"]}
   nefdecomod: {name: "Nef's Medieval decoration", keys: ["block.nefdecomod.cod"]}
   cobblemonintegrations: {name: "Cobblemon Integrations", keys: ["cobblemonintegrations.jei.evo_items.any"]}
-  plasmovoice: {name: "Plasmo Voice", keys: ["key.plasmovoice.general"]}
+  plasmovoice: {name: "Plasmo Voice", keys: ["key.plasmovoice.general"], channels: ["plasmo:*"]}
   extended_armor_bars: {name: "[Fabric] Extended Armor Bars Forked", keys: ["option.rebelkeithy.extendedarmorbars.colors"]}
   blockarmor: {name: "Block Armor", keys: ["itemGroup.blockArmorModded"]}
   molten_vents: {name: "Create: Molten Vents", keys: ["block.molten_vents.active_molten_ochrum"]}
