@@ -80,19 +80,19 @@ public final class AntiMod extends JavaPlugin {
         packetListeners.add(channelTracker);
         packetListeners.add(signListener);
 
+        // Resource-pack check (/antimod check <player> --pack, optionally on join)
+        this.packCheck = new PackCheck(this, actionExecutor);
+        packCheck.start();
+        getServer().getPluginManager().registerEvents(packCheck, this);
+
         // Event listener for join/quit. On Paper 1.21.4+ the join sweep waits
         // until the client reports it has loaded the world.
         boolean worldLoadEvent = WorldLoadedListener.isSupported();
-        PlayerJoinListener joinListener = new PlayerJoinListener(this, detectionManager, worldLoadEvent);
+        PlayerJoinListener joinListener = new PlayerJoinListener(this, detectionManager, packCheck, worldLoadEvent);
         getServer().getPluginManager().registerEvents(joinListener, this);
         if (worldLoadEvent) {
             getServer().getPluginManager().registerEvents(new WorldLoadedListener(joinListener), this);
         }
-
-        // On-demand resource-pack check (/antimod check <player> --pack)
-        this.packCheck = new PackCheck(this, actionExecutor);
-        packCheck.start();
-        getServer().getPluginManager().registerEvents(packCheck, this);
 
         // Command
         PluginCommand cmd = getCommand("antimod");

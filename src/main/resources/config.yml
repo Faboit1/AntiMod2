@@ -253,9 +253,13 @@ mod-scan:
 #   - ExploitPreventer fetches the last hop, then reports the download
 #     as failed                                                     -> detected
 #   - declined / no answer / failed earlier                         -> inconclusive
-# The pack is removed again right after the answer. Players whose server
-# resource-pack setting is "Prompt" see a pack prompt (and a short resource
-# reload if they accept). On demand only: nothing runs on join.
+# Players whose server resource-pack setting is "Prompt" see a pack prompt
+# (and a short resource reload if they accept). Runs on demand, and on join
+# if on-join is enabled below.
+#
+# Works next to other server resource packs: the check pack is added under
+# its own id and only that id is ever removed. Clients before 1.20.3 can hold
+# just one server pack, so they are never sent it (it would replace yours).
 pack-check:
   enabled: true
 
@@ -279,8 +283,25 @@ pack-check:
   timeout-seconds: 60
 
   # Also run the spoof-detection actions (kick by default) on a detection.
-  # Off: the result is only reported to whoever ran the check.
+  # Off: the result is only reported (to whoever ran the check; on-join
+  # detections go to staff with antimod.notify and the console).
   run-actions: false
+
+  # Check every Java player automatically after they join.
+  on-join:
+    enabled: false
+
+    # Push the pack as required: a player who declines it is disconnected by
+    # their own client, the same as with any required server pack.
+    required: false
+
+    # Wait this long after the client has loaded the world (ticks).
+    delay-ticks: 20
+
+    # Leave the (empty) pack on the client after the check instead of
+    # removing it: removing it costs the client a second resource reload.
+    # Checks run with the command always remove it.
+    keep-pack: true
 
 # =====================================================================
 # Banned mods & actions

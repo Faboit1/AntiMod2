@@ -2,6 +2,7 @@ package com.faboit.antimod.listener;
 
 import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.detection.DetectionManager;
+import com.faboit.antimod.detection.PackCheck;
 import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -24,25 +25,28 @@ public final class PlayerJoinListener implements Listener {
 
     private final AntiMod plugin;
     private final DetectionManager manager;
+    private final PackCheck packCheck;
     private final boolean waitForWorldLoad;
 
     /** Players who joined and whose client has not loaded the world yet. */
     private final Set<UUID> awaitingWorld = ConcurrentHashMap.newKeySet();
 
-    public PlayerJoinListener(AntiMod plugin, DetectionManager manager, boolean waitForWorldLoad) {
+    public PlayerJoinListener(AntiMod plugin, DetectionManager manager, PackCheck packCheck,
+                              boolean waitForWorldLoad) {
         this.plugin = plugin;
         this.manager = manager;
+        this.packCheck = packCheck;
         this.waitForWorldLoad = waitForWorldLoad;
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        if (!plugin.getConfigManager().isOnJoinEnabled()) return;
+        if (!plugin.getConfigManager().isOnJoinEnabled() && !plugin.getConfigManager().isPackCheckOnJoin()) return;
         Player player = event.getPlayer();
         if (player.hasPermission("antimod.bypass")) return;
 
         if (!waitForWorldLoad) {
-            manager.scheduleJoinProbe(player);
+            onReady(player);
             return;
         }
         // A client still on the loading screen has no chunks yet: it drops the
@@ -50,18 +54,22 @@ public final class PlayerJoinListener implements Listener {
         UUID uuid = player.getUniqueId();
         awaitingWorld.add(uuid);
         FoliaScheduler.runTaskLater(plugin, player, () -> {
-            if (awaitingWorld.remove(uuid) && player.isOnline()) manager.scheduleJoinProbe(player);
+            if (awaitingWorld.remove(uuid) && player.isOnline()) onReady(player);
         }, WORLD_LOAD_FALLBACK_TICKS);
     }
 
     /** Called by {@link WorldLoadedListener} once the client has loaded the world. */
     void onClientLoadedWorld(Player player) {
         // Only the first load after joining; respawns and world changes fire it again.
-        if (awaitingWorld.remove(player.getUniqueId())) {
-            // The manager decides when: after join-delay-ticks, or - with the
-            // spoof check on - once the client has announced its plugin channels.
-            manager.scheduleJoinProbe(player);
-        }
+        if (awaitingWorld.remove(player.getUniqueId())) onReady(player);
+    }
+
+    /** The client is in the world: start whatever runs on join. */
+    private void onReady(Player player) {
+        // The manager decides when: after join-delay-ticks, or - with the
+        // spoof check on - once the client has announced its plugin channels.
+        if (plugin.getConfigManager().isOnJoinEnabled()) manager.scheduleJoinProbe(player);
+        if (plugin.getConfigManager().isPackCheckOnJoin()) packCheck.scheduleOnJoin(player);
     }
 
     @EventHandler

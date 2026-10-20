@@ -79,6 +79,10 @@ public final class ConfigManager {
     private String packCheckPrompt;
     private int packCheckTimeoutSeconds;
     private boolean packCheckRunActions;
+    private boolean packCheckOnJoin;
+    private boolean packCheckOnJoinRequired;
+    private int packCheckOnJoinDelayTicks;
+    private boolean packCheckOnJoinKeepPack;
 
     public ConfigManager(AntiMod plugin) {
         this.plugin = plugin;
@@ -173,6 +177,10 @@ public final class ConfigManager {
         packCheckPrompt = cfg.getString("pack-check.prompt", "").replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
         packCheckTimeoutSeconds = Math.max(5, cfg.getInt("pack-check.timeout-seconds", 60));
         packCheckRunActions = cfg.getBoolean("pack-check.run-actions", false);
+        packCheckOnJoin = cfg.getBoolean("pack-check.on-join.enabled", false);
+        packCheckOnJoinRequired = cfg.getBoolean("pack-check.on-join.required", false);
+        packCheckOnJoinDelayTicks = Math.max(0, cfg.getInt("pack-check.on-join.delay-ticks", 20));
+        packCheckOnJoinKeepPack = cfg.getBoolean("pack-check.on-join.keep-pack", true);
         File catalogFile = new File(plugin.getDataFolder(), ModCatalog.FILE);
         if (!catalogFile.exists()) {
             plugin.saveResource(ModCatalog.FILE, false);
@@ -332,5 +340,9 @@ public final class ConfigManager {
     public String getPackCheckPrompt() { return packCheckPrompt; }
     public int getPackCheckTimeoutSeconds() { return packCheckTimeoutSeconds; }
     public boolean isPackCheckRunActions() { return packCheckRunActions; }
+    public boolean isPackCheckOnJoin() { return packCheckEnabled && packCheckOnJoin; }
+    public boolean isPackCheckOnJoinRequired() { return packCheckOnJoinRequired; }
+    public int getPackCheckOnJoinDelayTicks() { return packCheckOnJoinDelayTicks; }
+    public boolean isPackCheckOnJoinKeepPack() { return packCheckOnJoinKeepPack; }
     public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }
 }

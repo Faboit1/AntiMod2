@@ -3,6 +3,7 @@ package com.faboit.antimod.detection;
 import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.config.ConfigManager;
+import com.faboit.antimod.util.ClientVersionUtil;
 import com.faboit.antimod.util.FloodgateUtil;
 import com.faboit.antimod.util.FoliaScheduler;
 import com.sun.net.httpserver.HttpExchange;
@@ -48,6 +49,10 @@ import java.util.zip.ZipOutputStream;
  * redirects from its own HTTP server. A normal client reports it downloaded;
  * ExploitPreventer reports a failed download even though the last hop was
  * served. Installed mods and translation keys play no part.
+ *
+ * The pack is added next to any other server packs under its own id and only
+ * that id is ever removed, so the server's own packs are untouched. Clients
+ * before 1.20.3 hold a single server pack, so they are never sent one.
  */
 public final class PackCheck implements Listener {
 
@@ -59,16 +64,19 @@ public final class PackCheck implements Listener {
         final String playerName;
         final UUID packId;
         final String token;
+        /** Who ran the check; null for an automatic on-join check. */
         final CommandSender requester;
         final Set<Integer> hopsServed = ConcurrentHashMap.newKeySet();
+        final boolean onJoin;
         final AtomicBoolean finished = new AtomicBoolean();
 
-        Probe(Player player, UUID packId, String token, CommandSender requester) {
+        Probe(Player player, UUID packId, String token, CommandSender requester, boolean onJoin) {
             this.player = player.getUniqueId();
             this.playerName = player.getName();
             this.packId = packId;
             this.token = token;
             this.requester = requester;
+            this.onJoin = onJoin;
         }
     }
 
@@ -123,36 +131,59 @@ public final class PackCheck implements Listener {
         byPlayer.clear();
     }
 
-    /** Pushes the probe pack to {@code target}; the verdict goes to {@code requester}. */
+    /** {@code /antimod check <player> --pack}: the verdict goes to {@code requester}. */
     public void start(Player target, CommandSender requester) {
+        String problem = probe(target, requester, false);
+        if (problem != null) {
+            requester.sendMessage(Component.text("[AntiMod] " + problem, NamedTextColor.RED));
+        } else {
+            requester.sendMessage(Component.text("[AntiMod] Pack check sent to " + target.getName()
+                    + ". Waiting for their client...", NamedTextColor.GRAY));
+        }
+    }
+
+    /** pack-check.on-join: checks {@code player} once their client has loaded the world (plus the delay). */
+    public void scheduleOnJoin(Player player) {
+        if (server == null || plugin.getConfigManager().getPackCheckPublicUrl().isEmpty()) return;
+        FoliaScheduler.runTaskLater(plugin, player, () -> {
+            if (player.isOnline()) probe(player, null, true);
+        }, Math.max(1, plugin.getConfigManager().getPackCheckOnJoinDelayTicks()));
+    }
+
+    /**
+     * Pushes the probe pack to {@code target}. Returns why it could not be
+     * sent, or null once it is on its way.
+     */
+    private String probe(Player target, CommandSender requester, boolean onJoin) {
         ConfigManager cfg = plugin.getConfigManager();
         String base = cfg.getPackCheckPublicUrl();
         if (server == null || base.isEmpty()) {
-            requester.sendMessage(Component.text("[AntiMod] The pack check is off. Set pack-check.port and "
-                    + "pack-check.public-url in config.yml (a port players can reach), then restart.", NamedTextColor.RED));
-            return;
+            return "The pack check is off. Set pack-check.port and pack-check.public-url in config.yml "
+                    + "(a port players can reach), then restart.";
         }
         if (FloodgateUtil.isFloodgatePlayer(target)) {
-            requester.sendMessage(Component.text("[AntiMod] " + target.getName()
-                    + " is a Bedrock player; the pack check only applies to Java clients.", NamedTextColor.RED));
-            return;
+            return target.getName() + " is a Bedrock player; the pack check only applies to Java clients.";
         }
-        Probe probe = new Probe(target, UUID.randomUUID(), HexFormat.of().formatHex(randomBytes(12)), requester);
+        if (!ClientVersionUtil.supportsMultiplePacks(target)) {
+            return target.getName() + "'s client is older than 1.20.3: it holds a single server pack, so the "
+                    + "check would replace the server's own. (ExploitPreventer needs a newer client anyway.)";
+        }
+        Probe probe = new Probe(target, UUID.randomUUID(), HexFormat.of().formatHex(randomBytes(12)), requester, onJoin);
         if (byPlayer.putIfAbsent(target.getUniqueId(), probe) != null) {
-            requester.sendMessage(Component.text("[AntiMod] A pack check for " + target.getName()
-                    + " is already running.", NamedTextColor.RED));
-            return;
+            return "A pack check for " + target.getName() + " is already running.";
         }
         byToken.put(probe.token, probe);
 
         String url = hopUrl(base, probe.token, cfg.getPackCheckRedirects());
         String prompt = cfg.getPackCheckPrompt();
+        boolean required = onJoin && cfg.isPackCheckOnJoinRequired();
+        // A fresh pack id every time: clients cache packs by id, and a cached
+        // pack is never downloaded again.
         FoliaScheduler.runNowOrSoon(plugin, target, () ->
-                target.addResourcePack(probe.packId, url, packSha1, prompt.isEmpty() ? null : prompt, false));
-        requester.sendMessage(Component.text("[AntiMod] Pack check sent to " + target.getName()
-                + ". Waiting for their client...", NamedTextColor.GRAY));
+                target.addResourcePack(probe.packId, url, packSha1, prompt.isEmpty() ? null : prompt, required));
         FoliaScheduler.runGlobalTaskLater(plugin, () -> finish(probe, Verdict.INCONCLUSIVE,
                 "no answer within " + cfg.getPackCheckTimeoutSeconds() + "s"), cfg.getPackCheckTimeoutSeconds() * 20L);
+        return null;
     }
 
     // ------------------------------------------------------------------
@@ -244,12 +275,18 @@ public final class PackCheck implements Listener {
             case DETECTED -> "ExploitPreventer detected";
             case INCONCLUSIVE -> "inconclusive";
         };
-        String line = "[AntiMod] Pack check on " + probe.playerName + ": " + label + " - " + why + ".";
+        String line = "[AntiMod] " + (probe.onJoin ? "Join pack check" : "Pack check") + " on "
+                + probe.playerName + ": " + label + " - " + why + ".";
         Player player = Bukkit.getPlayer(probe.player);
         FoliaScheduler.runGlobalTask(plugin, () -> {
-            probe.requester.sendMessage(Component.text(line, color));
+            if (probe.requester != null) probe.requester.sendMessage(Component.text(line, color));
             if (!(probe.requester instanceof org.bukkit.command.ConsoleCommandSender)) {
                 plugin.getLogger().info(line.substring("[AntiMod] ".length()));
+            }
+            if (probe.onJoin && verdict == Verdict.DETECTED) {
+                for (Player staff : Bukkit.getOnlinePlayers()) {
+                    if (staff.hasPermission("antimod.notify")) staff.sendMessage(Component.text(line, color));
+                }
             }
             if (verdict == Verdict.DETECTED && player != null && player.isOnline()
                     && plugin.getConfigManager().isPackCheckRunActions()) {
@@ -262,8 +299,11 @@ public final class PackCheck implements Listener {
                 }
             }
         });
-        // Take the probe pack off the client again.
-        if (player != null && player.isOnline()) {
+        // Take the probe pack off the client again. An on-join check can leave
+        // it (keep-pack): it's empty, and removing it costs the client another
+        // resource reload.
+        boolean keep = probe.onJoin && plugin.getConfigManager().isPackCheckOnJoinKeepPack();
+        if (!keep && player != null && player.isOnline()) {
             FoliaScheduler.runNowOrSoon(plugin, player, () -> player.removeResourcePack(probe.packId));
         }
     }

@@ -147,7 +147,11 @@ Catches ExploitPreventer, which the key probes can't. ExploitPreventer replaces 
 | Download failed, although the final hop was served | ExploitPreventer detected |
 | Declined, no answer, or failed before the final hop | inconclusive |
 
-The pack is removed again straight after the answer. It runs on demand only, never on join. Players whose server resource-pack setting is *Prompt* see a pack prompt, plus a short resource reload if they accept. The result goes to whoever ran the command. Set `pack-check.run-actions: true` to also run the spoof-detection actions (kick by default) on a detection.
+Players whose server resource-pack setting is *Prompt* see a pack prompt, plus a short resource reload if they accept. With the command, the pack is removed again straight after the answer and the result goes to whoever ran it. Set `pack-check.run-actions: true` to also run the spoof-detection actions (kick by default) on a detection.
+
+**On join:** `pack-check.on-join.enabled: true` checks every Java player automatically once their client has loaded the world (plus `delay-ticks`). `required: true` makes the pack required, so a player who declines is disconnected by their own client. On-join detections go to staff with `antimod.notify` and the console. By default the empty pack stays on the client afterwards (`keep-pack`), since removing it costs another resource reload.
+
+**Other server resource packs** are left alone: the check pack is added next to them under its own id, and only that id is ever removed. Clients before 1.20.3 can hold just one server pack, so they are never sent it (it would replace yours); ExploitPreventer needs a newer client anyway.
 
 Setup: the HTTP server needs a port players can reach. On Pterodactyl, add an allocation, then set `pack-check.port` and `pack-check.public-url` (e.g. `http://play.example.com:25590`) in `config.yml` and restart.
 

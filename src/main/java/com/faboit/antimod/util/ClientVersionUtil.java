@@ -19,6 +19,8 @@ public final class ClientVersionUtil {
 
     /** 1.19.4: the first release whose translate components honour "fallback". */
     private static final int PROTOCOL_1_19_4 = 762;
+    /** 1.20.3: the first release with several server resource packs at once. */
+    private static final int PROTOCOL_1_20_3 = 765;
 
     private static volatile boolean viaResolved;
     private static Object viaApi;
@@ -45,6 +47,15 @@ public final class ClientVersionUtil {
      */
     public static boolean supportsTranslationFallback(Player player) {
         return getProtocolVersion(player) >= PROTOCOL_1_19_4;
+    }
+
+    /**
+     * Whether the client can hold several server resource packs at once
+     * (1.20.3+). Older clients have a single slot, so pushing a pack to them
+     * replaces the server's own. Unknown counts as "no".
+     */
+    public static boolean supportsMultiplePacks(Player player) {
+        return getProtocolVersion(player) >= PROTOCOL_1_20_3;
     }
 
     private static int viaVersion(UUID uuid) {
