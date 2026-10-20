@@ -6,7 +6,7 @@ author: Faboit
 description: Detects players using banned client mods via the translation-key sign exploit.
 website: https://github.com/Faboit1/AntiMod
 depend: [packetevents]
-softdepend: [floodgate]
+softdepend: [floodgate, ViaVersion]
 load: POSTWORLD
 folia-supported: true
 
@@ -16,11 +16,12 @@ commands:
     permission: antimod.admin
     usage: |
       /antimod reload — Reload configuration
-      /antimod check <player> — Run detection on a player
+      /antimod check <player> [--pack|--teleport] — Run detection on a player; --pack runs the resource-pack check, --teleport the Autism Client check
       /antimod violations <player> — Show a player's violation history
       /antimod clear <player> [mod] — Clear a player's violations
       /antimod info — Plugin info
       /antimod channels <player> — Show a player's registered plugin channels
+      /antimod mods <player> [--slow] — Scan a player for known mods (report only)
     aliases: [am]
 
 permissions:

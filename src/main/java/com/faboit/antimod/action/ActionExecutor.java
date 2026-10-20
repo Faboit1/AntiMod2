@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 
@@ -110,6 +111,12 @@ public final class ActionExecutor {
             cmd = cmd.substring(1).trim();
         }
         if (cmd.isEmpty()) return;
+        // /kick shows its reason as plain text, so "&c" would reach the player
+        // literally: turn &-codes into real colour codes for kick commands.
+        String label = cmd.split(" ", 2)[0].toLowerCase(Locale.ROOT);
+        if (label.equals("kick") || label.endsWith(":kick")) {
+            cmd = cmd.replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
+        }
 
         try {
             if (!Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd)) {

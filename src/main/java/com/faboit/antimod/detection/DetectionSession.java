@@ -2,10 +2,10 @@ package com.faboit.antimod.detection;
 
 import com.github.retrooper.packetevents.util.Vector3i;
 
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -26,14 +26,33 @@ public final class DetectionSession {
     private final Map<Integer, String> lineToModId = new LinkedHashMap<>();
     /** line index (0..3) -> translation key that was probed */
     private final Map<Integer, String> lineToKey = new LinkedHashMap<>();
+    /** line index (0..3) -> what the probe is for; see {@link ProbeKind}. */
+    private final Map<Integer, ProbeKind> lineToKind = new HashMap<>();
+    /** line index (0..3) -> several catalog probes packed into that one line (scans only). */
+    private final Map<Integer, List<PackedProbe>> packedLines = new HashMap<>();
+
     /**
-     * Lines probing a spoof-check mod rather than a banned one. For these the
-     * mod id is a spoof-mods.yml id, and a translated answer is the expected,
-     * innocent outcome.
+     * Separates packed probes: line text is "¦0¦<first>¦1¦<second>...", where
+     * each <...> is a key rendered with an empty fallback.
      */
-    private final Set<Integer> spoofCheckLines = new HashSet<>();
+    public static final String PACK_MARK = "\u00A6";
+
+    /** One probe packed into a shared line. */
+    public record PackedProbe(String owner, String key) {}
+
+    /** What a probed line is for, which decides what its answer means. */
+    public enum ProbeKind {
+        /** A banned mod from config.yml: a translated answer runs its actions. */
+        BANNED,
+        /** A spoof-mods.yml mod whose channel was seen: a translated answer is the innocent outcome. */
+        SPOOF_CHECK,
+        /** A mod-catalog.yml mod probed by /antimod mods: only reported, never acted on. */
+        CATALOG
+    }
 
     private boolean responded = false;
+    /** Set once the sign has been sent; a scan sends its signs in waves. */
+    private volatile boolean sent = false;
 
     public DetectionSession(UUID playerUuid, String fallbackMarker, Vector3i signPosition) {
         this.playerUuid = playerUuid;
@@ -42,10 +61,42 @@ public final class DetectionSession {
         this.signPosition = signPosition;
     }
 
-    public void addLine(int lineIndex, String modId, String key, boolean spoofCheck) {
+    public void addLine(int lineIndex, String modId, String key, ProbeKind kind) {
         lineToModId.put(lineIndex, modId);
         lineToKey.put(lineIndex, key);
-        if (spoofCheck) spoofCheckLines.add(lineIndex);
+        lineToKind.put(lineIndex, kind);
+    }
+
+    /**
+     * Packs several catalog probes into one line, so a scan needs far fewer
+     * signs (and the client sends far fewer replies).
+     */
+    public void addPackedLine(int lineIndex, List<PackedProbe> probes) {
+        packedLines.put(lineIndex, List.copyOf(probes));
+        addLine(lineIndex, probes.get(0).owner(), probes.get(0).key(), ProbeKind.CATALOG);
+    }
+
+    /** The probes packed into a line, or null for a single-probe line. */
+    public List<PackedProbe> getPackedAt(int lineIndex) { return packedLines.get(lineIndex); }
+
+    public static String marker(int index) { return PACK_MARK + index + PACK_MARK; }
+
+    /**
+     * Splits a packed line's answer into one answer per probe, or returns
+     * null if the markers are not all there in order.
+     */
+    public static String[] unpack(String line, int count) {
+        String[] out = new String[count];
+        int pos = 0;
+        for (int i = 0; i < count; i++) {
+            String mark = marker(i);
+            int at = line.indexOf(mark, pos);
+            if (at < 0) return null;
+            if (i > 0) out[i - 1] = line.substring(pos, at);
+            pos = at + mark.length();
+        }
+        out[count - 1] = line.substring(pos);
+        return out;
     }
 
     public UUID getPlayerUuid() { return playerUuid; }
@@ -56,11 +107,13 @@ public final class DetectionSession {
     public Map<Integer, String> getLineToKey() { return lineToKey; }
     public boolean isResponded() { return responded; }
     public void markResponded() { this.responded = true; }
+    public boolean isSent() { return sent; }
+    public void markSent() { this.sent = true; }
 
     public String getModAt(int lineIndex) { return lineToModId.get(lineIndex); }
     public String getKeyAt(int lineIndex) { return lineToKey.get(lineIndex); }
 
     public boolean hasLine(int lineIndex) { return lineToModId.containsKey(lineIndex); }
 
-    public boolean isSpoofCheckLine(int lineIndex) { return spoofCheckLines.contains(lineIndex); }
+    public ProbeKind getKindAt(int lineIndex) { return lineToKind.getOrDefault(lineIndex, ProbeKind.BANNED); }
 }

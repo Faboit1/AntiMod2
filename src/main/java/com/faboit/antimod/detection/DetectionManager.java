@@ -5,9 +5,15 @@ import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.config.ModConfig;
+import com.faboit.antimod.config.ModCatalog;
 import com.faboit.antimod.config.SpoofModConfig;
+import com.faboit.antimod.detection.DetectionSession.ProbeKind;
+import com.faboit.antimod.util.ClientVersionUtil;
 import com.faboit.antimod.util.FloodgateUtil;
 import com.faboit.antimod.util.FoliaScheduler;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -19,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 /**
@@ -47,6 +54,7 @@ public final class DetectionManager {
     private final SignPacketSender packetSender;
     private final ActionExecutor actionExecutor;
     private final ChannelTracker channelTracker;
+    private final SpoofEntryMonitor entryMonitor;
 
     /** The in-flight sweep per player, if any. */
     private final Map<UUID, ProbeBatch> activeBatches = new ConcurrentHashMap<>();
@@ -58,6 +66,7 @@ public final class DetectionManager {
         this.plugin = plugin;
         this.actionExecutor = actionExecutor;
         this.channelTracker = channelTracker;
+        this.entryMonitor = new SpoofEntryMonitor(plugin);
         this.packetSender = new SignPacketSender(plugin);
         channelTracker.setPlayRegistrationListener(this::onPlayRegistration);
     }
@@ -79,10 +88,8 @@ public final class DetectionManager {
     public void scheduleJoinProbe(Player player) {
         ConfigManager cfg = plugin.getConfigManager();
         int joinDelay = cfg.getJoinDelayTicks();
-        String brand = player.getClientBrandName();
-        boolean vanillaBrand = brand != null && brand.equalsIgnoreCase("vanilla");
         if (!cfg.isSpoofEnabled() || !cfg.isSpoofWaitForChannels() || cfg.getSpoofMods().isEmpty()
-                || vanillaBrand) {
+                || channelTracker.isVanillaBrand(player)) {
             runJoinProbeLater(player, null, joinDelay);
             return;
         }
@@ -180,7 +187,9 @@ public final class DetectionManager {
         // missing. Let the in-flight sweep finish instead.
         ProbeBatch inFlight = activeBatches.get(uuid);
         if (inFlight != null) {
-            if (!force && !inFlight.isExpired(timeoutMillis)) return;
+            // A scan runs longer than a sweep's window; only an admin's
+            // explicit check may cut it short.
+            if (!force && (inFlight.getScan() != null || !inFlight.isExpired(timeoutMillis))) return;
             // Expired (or explicitly superseded): retire it and clean up
             // whatever it left on the client.
             if (activeBatches.remove(uuid, inFlight)) {
@@ -193,7 +202,7 @@ public final class DetectionManager {
         for (ModConfig mod : cfg.getMods().values()) {
             if (!mod.isEnabled()) continue;
             for (String key : mod.getTranslationKeys()) {
-                probes.add(new PendingProbe(mod.getId(), key, false));
+                probes.add(new PendingProbe(mod.getId(), key, ProbeKind.BANNED));
             }
         }
 
@@ -218,7 +227,7 @@ public final class DetectionManager {
                     uuid, cfg.getFallbackMarker(), positions.get(signIndex));
             for (int i = start; i < end; i++) {
                 PendingProbe p = probes.get(i);
-                session.addLine(i - start, p.modId, p.key, p.spoofCheck);
+                session.addLine(i - start, p.modId, p.key, p.kind);
             }
             batch.addSession(session);
         }
@@ -227,6 +236,7 @@ public final class DetectionManager {
         // waiting for a response between signs.
         if (activeBatches.putIfAbsent(uuid, batch) != null) return;
         for (DetectionSession session : batch.getSessions()) {
+            session.markSent();
             packetSender.send(player, session);
         }
 
@@ -253,20 +263,26 @@ public final class DetectionManager {
      */
     private void addSpoofCheckProbes(Player player, ConfigManager cfg, ProbeBatch batch,
                                      List<PendingProbe> probes) {
-        Set<String> registered = channelTracker.getChannels(player);
+        // Bedrock players run no Java mods; any channel on them came from the proxy.
+        if (FloodgateUtil.isFloodgatePlayer(player)) return;
+        Set<String> registered = channelTracker.getSpoofCheckChannels(player);
         if (registered.isEmpty()) return;
         int budget = cfg.getSpoofMaxModsPerSweep();
-        for (SpoofModConfig mod : cfg.getSpoofMods().values()) {
-            if (budget <= 0) break;
+        // Trusted entries first and always: they decide the verdict, so they
+        // don't count against max-mods-per-sweep.
+        List<SpoofModConfig> ordered = new ArrayList<>(cfg.getSpoofMods().values());
+        ordered.sort((a, b) -> Boolean.compare(b.isTrusted(), a.isTrusted()));
+        for (SpoofModConfig mod : ordered) {
             if (!mod.isEnabled()) continue;
+            if (!mod.isTrusted() && budget <= 0) break;
             String channel = mod.findChannel(registered);
             if (channel == null) continue;
             List<String> keys = new ArrayList<>(new LinkedHashSet<>(mod.getTranslationKeys()));
             batch.expectSpoofCheck(mod.getId(), channel, keys);
             for (String key : keys) {
-                probes.add(new PendingProbe(mod.getId(), key, true));
+                probes.add(new PendingProbe(mod.getId(), key, ProbeKind.SPOOF_CHECK));
             }
-            budget--;
+            if (!mod.isTrusted()) budget--;
         }
     }
 
@@ -276,34 +292,73 @@ public final class DetectionManager {
      * rather than at the timeout.
      */
     public void onSessionAnswered(Player player, ProbeBatch batch) {
-        if (batch.isComplete()) {
+        if (!batch.isComplete()) return;
+        if (batch.getScan() != null) {
+            activeBatches.remove(player.getUniqueId(), batch);
+            finishScan(player, batch);
+        } else {
             evaluateSpoofCheck(player, batch);
         }
     }
 
     /**
-     * Flags the player when a channel-confirmed mod answered none of its keys,
-     * or when the client echoed a probed key back verbatim (a vanilla client
-     * always answers with the supplied fallback). Runs at most once per sweep.
+     * Flags the player when the channel-confirmed mods that answered none of
+     * their keys outnumber the ones that resolved theirs (and there are at
+     * least {@code min-hidden-mods} of them), or when the client echoed a
+     * probed key back verbatim. A client hiding translations hides them for
+     * every mod, so when most mods verify, the few that did not point at
+     * those entries rather than the player; an entry that fails for a player
+     * who verified everything else is reported to the {@link SpoofEntryMonitor}.
+     *
+     * The echo only counts for Java clients on 1.19.4+: older clients ignore
+     * the fallback and show the raw key as plain vanilla behaviour. Runs at
+     * most once per sweep.
      */
     private void evaluateSpoofCheck(Player player, ProbeBatch batch) {
         ConfigManager cfg = plugin.getConfigManager();
         if (!cfg.isSpoofEnabled() || player == null) return;
-        boolean echoed = cfg.isSpoofFlagRawKeyEcho() && !batch.getRawEchoKeys().isEmpty();
+        boolean echoed = cfg.isSpoofFlagRawKeyEcho() && !batch.getRawEchoKeys().isEmpty()
+                && !FloodgateUtil.isFloodgatePlayer(player)
+                && ClientVersionUtil.supportsTranslationFallback(player);
         if (!batch.hasSpoofChecks() && !echoed) return;
         if (!batch.claimSpoofEvaluation()) return;
 
         List<String> hidden = batch.getHiddenSpoofMods();
-        boolean enoughHidden = hidden.size() >= cfg.getSpoofMinHiddenMods();
+        List<String> verified = batch.getVerifiedSpoofMods();
+        Map<String, SpoofModConfig> spoofMods = cfg.getSpoofMods();
+        Predicate<String> trusted = id -> {
+            SpoofModConfig mod = spoofMods.get(id);
+            return mod != null && mod.isTrusted();
+        };
+        List<String> hiddenTrusted = hidden.stream().filter(trusted).toList();
+        boolean verifiedTrusted = verified.stream().anyMatch(trusted);
+
+        // A trusted entry failing is a detection, not a sign of a bad entry,
+        // so only ordinary entries feed the auto-disable.
+        if (hidden.size() == 1 && !verified.isEmpty() && !trusted.test(hidden.get(0))) {
+            entryMonitor.recordMiss(hidden.get(0), player.getUniqueId());
+        }
+        boolean enoughHidden;
+        if (!hiddenTrusted.isEmpty()) {
+            enoughHidden = true;                       // a trusted entry hid its keys: flag
+        } else if (verifiedTrusted) {
+            enoughHidden = false;                      // a trusted entry verified: clear
+        } else {
+            enoughHidden = hidden.size() >= cfg.getSpoofMinHiddenMods() && hidden.size() > verified.size();
+        }
         if (!enoughHidden && !echoed) return;
 
         List<String> evidence = new ArrayList<>();
         if (enoughHidden) {
+            List<String> names = new ArrayList<>();
             for (String id : hidden) {
                 SpoofModConfig mod = cfg.getSpoofMods().get(id);
                 String name = mod == null ? id : mod.getDisplayName();
-                evidence.add(name + " [" + batch.getSpoofCheckChannel(id) + "]");
+                names.add(name + " [" + batch.getSpoofCheckChannel(id) + "]");
             }
+            evidence.add((hiddenTrusted.isEmpty() ? "" : "trusted mod hidden; ")
+                    + "hid " + hidden.size() + " of " + (hidden.size() + verified.size())
+                    + " channel-confirmed mods: " + String.join(", ", names));
         }
         if (echoed) {
             evidence.add("raw key echo: " + String.join(", ", batch.getRawEchoKeys()));
@@ -320,11 +375,158 @@ public final class DetectionManager {
         });
     }
 
+    // ------------------------------------------------------------------
+    //   Mod scan (/antimod mods)
+    // ------------------------------------------------------------------
+
+    /**
+     * Probes the player for every mod in mod-catalog.yml (and the banned
+     * mods), then reports to {@code requester}. A scan only reads: nothing it
+     * finds records a violation or runs an action. Its signs go out in waves
+     * of {@code mod-scan.signs-per-tick} so a large catalog doesn't arrive as
+     * one burst.
+     */
+    public void runModScan(Player target, CommandSender requester, boolean slow) {
+        FoliaScheduler.runNowOrSoon(plugin, target, () -> runModScanNow(target, requester, slow));
+    }
+
+    /**
+     * @param slow pace the signs at {@code mod-scan.slow-signs-per-tick}
+     *             instead of sending them all at once, for players on weak
+     *             machines or connections
+     */
+    private void runModScanNow(Player target, CommandSender requester, boolean slow) {
+        if (!target.isOnline()) {
+            requester.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
+            return;
+        }
+        if (FloodgateUtil.isFloodgatePlayer(target)) {
+            requester.sendMessage(Component.text("[AntiMod] " + target.getName()
+                    + " is a Bedrock player: there are no Java mods to scan for.", NamedTextColor.YELLOW));
+            return;
+        }
+        ConfigManager cfg = plugin.getConfigManager();
+        UUID uuid = target.getUniqueId();
+        ProbeBatch inFlight = activeBatches.get(uuid);
+        if (inFlight != null && inFlight.getScan() != null) {
+            requester.sendMessage(Component.text("[AntiMod] A scan of " + target.getName()
+                    + " is already running.", NamedTextColor.YELLOW));
+            return;
+        }
+        if (inFlight != null && activeBatches.remove(uuid, inFlight)) {
+            cleanupUnanswered(target, inFlight);
+        }
+
+        ModCatalog catalog = cfg.getCatalog();
+        Map<String, String> names = ModScan.namesOf(catalog);
+        List<PendingProbe> probes = new ArrayList<>();
+        ProbeBatch batch = new ProbeBatch(uuid);
+        for (ModCatalog.CatalogMod mod : catalog.getMods()) {
+            for (String key : mod.keys()) probes.add(new PendingProbe(mod.id(), key, ProbeKind.CATALOG));
+            batch.expectCatalog(mod.id(), mod.keys());
+        }
+        // The banned mods too, reported by name but never acted on here.
+        for (ModConfig mod : cfg.getMods().values()) {
+            String owner = "config:" + mod.getId();
+            names.put(owner, mod.getDisplayName());
+            for (String key : mod.getTranslationKeys()) probes.add(new PendingProbe(owner, key, ProbeKind.CATALOG));
+            batch.expectCatalog(owner, mod.getTranslationKeys());
+        }
+        if (probes.isEmpty()) {
+            requester.sendMessage(Component.text("[AntiMod] The mod catalog is empty.", NamedTextColor.RED));
+            return;
+        }
+
+        // Several keys share each line, so the client sends one reply per four
+        // lines' worth of keys. A line's reply must stay within the 384
+        // characters the server accepts: each key is budgeted as if it
+        // rendered 100 characters (a long translation, or the raw key on
+        // clients before 1.19.4) plus its marker.
+        List<List<DetectionSession.PackedProbe>> lines = new ArrayList<>();
+        List<DetectionSession.PackedProbe> line = new ArrayList<>();
+        int used = 0;
+        for (PendingProbe p : probes) {
+            int cost = Math.max(p.key.length(), 100) + 8;
+            if (!line.isEmpty() && (line.size() >= cfg.getScanKeysPerLine() || used + cost > MAX_LINE_BUDGET)) {
+                lines.add(line);
+                line = new ArrayList<>();
+                used = 0;
+            }
+            line.add(new DetectionSession.PackedProbe(p.modId, p.key));
+            used += cost;
+        }
+        lines.add(line);
+
+        int signCount = (lines.size() + 3) / 4;
+        List<Vector3i> positions = packetSender.computeSignPositions(target, signCount);
+        List<DetectionSession> sessions = new ArrayList<>(signCount);
+        for (int signIndex = 0; signIndex < signCount; signIndex++) {
+            DetectionSession session = new DetectionSession(uuid, cfg.getFallbackMarker(), positions.get(signIndex));
+            for (int l = 0; l < 4 && signIndex * 4 + l < lines.size(); l++) {
+                session.addPackedLine(l, lines.get(signIndex * 4 + l));
+            }
+            sessions.add(session);
+            batch.addSession(session);
+        }
+        ModScan scan = new ModScan(requester, target, names, signCount);
+        batch.setScan(scan);
+        if (activeBatches.putIfAbsent(uuid, batch) != null) {
+            requester.sendMessage(Component.text("[AntiMod] " + target.getName()
+                    + " is being probed right now; try again in a moment.", NamedTextColor.YELLOW));
+            return;
+        }
+        int perTick = slow ? cfg.getScanSlowSignsPerTick() : cfg.getScanSignsPerTick();
+        String pace = perTick > 0
+                ? ", about " + Math.max(1, (signCount + perTick * 20 - 1) / (perTick * 20)) + "s" : "";
+        requester.sendMessage(Component.text("[AntiMod] Scanning " + target.getName() + " for "
+                + names.size() + " mods (" + signCount + " signs" + pace + ")...", NamedTextColor.GRAY));
+
+        // Every sign gets a reply. ViaVersion kicks clients sending over 800
+        // packets a second, so "all at once" (signs-per-tick 0) still splits a
+        // huge scan into bursts of MAX_BURST signs a second apart.
+        int burst = perTick > 0 ? perTick : MAX_BURST;
+        int gap = perTick > 0 ? 1 : 20;
+        int waves = (signCount + burst - 1) / burst;
+        for (int wave = 0; wave < waves; wave++) {
+            List<DetectionSession> slice = sessions.subList(wave * burst, Math.min(signCount, (wave + 1) * burst));
+            Runnable send = () -> {
+                if (activeBatches.get(uuid) != batch || !target.isOnline()) return;
+                for (DetectionSession s : slice) {
+                    s.markSent();
+                    packetSender.send(target, s);
+                }
+            };
+            if (wave == 0) send.run();
+            else FoliaScheduler.runTaskLater(plugin, target, send, (long) wave * gap);
+        }
+
+        FoliaScheduler.runGlobalTaskLater(plugin, () -> {
+            if (activeBatches.remove(uuid, batch)) {
+                cleanupUnanswered(target, batch);
+            }
+            finishScan(target, batch);
+        }, (long) (waves - 1) * gap + cfg.getScanResponseTimeoutTicks());
+    }
+
+    private void finishScan(Player target, ProbeBatch batch) {
+        ModScan scan = batch.getScan();
+        if (scan == null || !scan.claimFinish()) return;
+        int unanswered = batch.getSessions().size();
+        ConfigManager cfg = plugin.getConfigManager();
+        FoliaScheduler.runGlobalTask(plugin, () -> {
+            try {
+                scan.report(batch, target, channelTracker, cfg.getCatalog(), cfg.getSpoofMods().values(), unanswered);
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.WARNING, "Failed to report the mod scan of " + scan.getTargetName(), t);
+            }
+        });
+    }
+
     /** Clears the ghost signs left by any session in the batch that never answered. */
     private void cleanupUnanswered(Player player, ProbeBatch batch) {
         if (player == null || !player.isOnline()) return;
         for (DetectionSession s : batch.getSessions()) {
-            if (!s.isResponded()) {
+            if (s.isSent() && !s.isResponded()) {
                 packetSender.sendCleanup(player, s.getSignPosition());
             }
         }
@@ -393,7 +595,12 @@ public final class DetectionManager {
     /** A matched sign response: the session that was probed and the sweep it belongs to. */
     public record Match(ProbeBatch batch, DetectionSession session) {}
 
-    private record PendingProbe(String modId, String key, boolean spoofCheck) {}
+    private record PendingProbe(String modId, String key, ProbeKind kind) {}
+
+    /** Reply characters a packed scan line may use; the server accepts 384. */
+    private static final int MAX_LINE_BUDGET = 380;
+    /** Most scan signs sent in one burst, kept well under ViaVersion's 800 packets/second. */
+    private static final int MAX_BURST = 600;
 
     /** A join probe waiting for the client's channel registration. */
     private static final class PendingJoin {
