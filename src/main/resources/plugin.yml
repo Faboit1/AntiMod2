@@ -6,7 +6,7 @@ author: Faboit
 description: Detects players using banned client mods via the translation-key sign exploit.
 website: https://github.com/Faboit1/AntiMod
 depend: [packetevents]
-softdepend: [floodgate]
+softdepend: [floodgate, ViaVersion]
 load: POSTWORLD
 folia-supported: true
 

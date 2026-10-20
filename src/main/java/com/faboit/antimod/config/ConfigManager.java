@@ -10,7 +10,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Loads and holds the plugin configuration. All settings live in config.yml
@@ -54,8 +56,12 @@ public final class ConfigManager {
     private int spoofMinHiddenMods;
     private int spoofMaxModsPerSweep;
     private boolean spoofFlagRawKeyEcho;
+    private boolean spoofLearnProxyChannels;
+    private int spoofAutoDisableAfter;
+    private List<Pattern> spoofIgnoredChannels = Collections.emptyList();
     private ModConfig spoofDetector;
-    private Map<String, SpoofModConfig> spoofMods = Collections.emptyMap();
+    /** Swapped whole on reload; read from packet threads. */
+    private volatile Map<String, SpoofModConfig> spoofMods = Collections.emptyMap();
 
     public ConfigManager(AntiMod plugin) {
         this.plugin = plugin;
@@ -116,9 +122,16 @@ public final class ConfigManager {
         spoofWaitForChannels = cfg.getBoolean("spoof-detection.wait-for-channels", true);
         spoofChannelWaitTicks = Math.max(0, cfg.getInt("spoof-detection.channel-wait-ticks", 20));
         spoofChannelSettleTicks = Math.max(0, cfg.getInt("spoof-detection.channel-settle-ticks", 2));
-        spoofMinHiddenMods = Math.max(1, cfg.getInt("spoof-detection.min-hidden-mods", 1));
+        spoofMinHiddenMods = Math.max(1, cfg.getInt("spoof-detection.min-hidden-mods", 2));
         spoofMaxModsPerSweep = Math.max(1, cfg.getInt("spoof-detection.max-mods-per-sweep", 8));
         spoofFlagRawKeyEcho = cfg.getBoolean("spoof-detection.flag-raw-key-echo", true);
+        spoofLearnProxyChannels = cfg.getBoolean("spoof-detection.learn-proxy-channels", true);
+        spoofAutoDisableAfter = Math.max(0, cfg.getInt("spoof-detection.auto-disable-after", 5));
+        List<Pattern> ignored = new ArrayList<>();
+        for (String glob : cfg.getStringList("spoof-detection.ignore-channels")) {
+            ignored.add(SpoofModConfig.compileGlob(glob));
+        }
+        spoofIgnoredChannels = List.copyOf(ignored);
         ConfigurationSection spoofSection = cfg.getConfigurationSection("spoof-detection");
         spoofDetector = new ModConfig(
                 cfg.getString("spoof-detection.id", "translation-spoofer"),
@@ -140,6 +153,11 @@ public final class ConfigManager {
             actions.add(new ActionConfig(threshold, commands, broadcast, staffOnly, message));
         }
         return actions;
+    }
+
+    /** Re-reads spoof-mods.yml alone, e.g. after an entry was auto-disabled. */
+    public void reloadSpoofMods() {
+        spoofMods = loadSpoofMods();
     }
 
     /**
@@ -249,6 +267,17 @@ public final class ConfigManager {
     public int getSpoofMinHiddenMods() { return spoofMinHiddenMods; }
     public int getSpoofMaxModsPerSweep() { return spoofMaxModsPerSweep; }
     public boolean isSpoofFlagRawKeyEcho() { return spoofFlagRawKeyEcho; }
+    public boolean isSpoofLearnProxyChannels() { return spoofLearnProxyChannels; }
+    public int getSpoofAutoDisableAfter() { return spoofAutoDisableAfter; }
+
+    /** Whether a registered channel matches spoof-detection.ignore-channels. */
+    public boolean isSpoofIgnoredChannel(String channel) {
+        String lower = channel.toLowerCase(Locale.ROOT);
+        for (Pattern p : spoofIgnoredChannels) {
+            if (p.matcher(lower).matches()) return true;
+        }
+        return false;
+    }
     public ModConfig getSpoofDetector() { return spoofDetector; }
     public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }
 }

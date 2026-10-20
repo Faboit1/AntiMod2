@@ -142,14 +142,52 @@ spoof-detection:
   # keys). The first matches in spoof-mods.yml order are used.
   max-mods-per-sweep: 8
 
-  # Flag once at least this many channel-confirmed mods hide all their keys.
-  # Raise it if a mod version without one of the listed keys gives a false
-  # positive.
-  min-hidden-mods: 1
+  # A client that hides translations hides them for every mod. So a player is
+  # only flagged when the channel-confirmed mods that hid all their keys
+  # OUTNUMBER the ones that resolved theirs: if most mods verify, the player
+  # is fine even if a few did not. On top of that, at least this many mods
+  # must be hidden, so one stray channel can never flag anyone on its own.
+  # 1 is stricter but less forgiving.
+  min-hidden-mods: 2
 
-  # Also flag a client that echoes a probed key back verbatim. A vanilla
-  # client always answers with the fallback we supply, never the raw key.
+  # Retire unreliable entries automatically: when an entry fails for this many
+  # DIFFERENT players who verified every other mod in the same sweep, it is
+  # commented out in spoof-mods.yml (with a note why) and the list reloads.
+  # Tallies are kept in spoof-mod-misses.yml. 0 = never.
+  auto-disable-after: 5
+
+  # Also flag a Java 1.19.4+ client that echoes a probed key back verbatim:
+  # those clients always answer with the fallback we supply. Older clients
+  # (via ViaBackwards) show the raw key as normal vanilla behaviour and Bedrock
+  # players are skipped, so neither is ever flagged by this.
   flag-raw-key-echo: true
+
+  # Channels that never count as proof of a mod. A proxy registers its own
+  # plugins' channels on the backend for EVERY player, so they look like the
+  # client's: Velocity does this for voicechat-velocity's "voicechat:secret"
+  # and "voicechat:request_secret". `*` matches anything.
+  ignore-channels:
+    - "voicechat:request_secret"   # Simple Voice Chat proxy plugin
+    - "voicechat:secret"           # Simple Voice Chat proxy plugin
+    - "vc:*"                       # Simple Voice Chat proxy plugin (legacy)
+    - "bungeecord:main"
+    - "BungeeCord"
+    - "velocity:*"
+    - "vv:*"                       # ViaVersion
+    - "luckperms:*"
+    - "authmevelocity:*"
+    - "tab:*"
+    - "sr:*"                       # SkinsRestorer
+    - "skinsrestorer:*"
+    - "floodgate:*"
+    - "geyser:*"
+    - "plan:*"
+    - "litebans:*"
+
+  # Learn the rest automatically: a vanilla client never registers channels,
+  # so any channel a vanilla-brand connection carries was added by the proxy
+  # or server and is ignored for everyone (logged once per channel).
+  learn-proxy-channels: true
 
   # The violation id ({mod-id}) and name ({mod}) used for this detection.
   # `/antimod clear <player> translation-spoofer` resets it.
@@ -157,18 +195,14 @@ spoof-detection:
   display-name: "Translation Spoofer"
 
   # Same format as a mod's actions below. {keys} lists the evidence, e.g.
-  # "Simple Voice Chat [voicechat:secret]".
+  # "hid 3 of 4 channel-confirmed mods: Jade [jade:receive_data], ...".
+  # Every detection kicks (threshold 1 applies to every violation count).
   actions:
     - threshold: 1
-      broadcast: "&e[AntiMod] &e{player} &7is hiding mod translations &8({keys})"
+      commands:
+        - "kick {player} &cTranslation-spoofing mods (OpSec, ExploitPreventer, ...) are not allowed. &7Disable them and rejoin."
+      broadcast: "&e[AntiMod] &e{player} &7was kicked for hiding mod translations &8({keys})"
       staff-only: true
-    # Example escalation - uncomment to enforce:
-    # - threshold: 2
-    #   commands:
-    #     - "kick {player} &cDisable translation-spoofing mods (OpSec, ExploitPreventer) to play here."
-    # - threshold: 3
-    #   commands:
-    #     - "litebans:ban {player} 7d Hiding client mods"
 
 # =====================================================================
 # Banned mods & actions

@@ -22,34 +22,29 @@
 # values containing %s / %d, and keys that other mods also ship.
 # `/antimod channels <player>` lists the channels a client registered.
 #
-# The entries below were generated from the Fabric builds on Modrinth of the
-# 1000 most downloaded mods: newest build + newest 1.21.x build. A key is only
-# listed when it exists in both builds, is not a vanilla key and is not shipped
-# by any other mod. Channels assume the mod id is the channel namespace, which
-# is the norm. Entries for mods that never register a channel simply never
-# match, and cost nothing.
+# The entries below were generated from the 1000 most downloaded mods on
+# Modrinth. Every listed key is present in EVERY sampled build of its mod:
+# Fabric, Quilt, Forge and NeoForge, MC 1.16.5 and up, the newest and oldest
+# build for each MC release. It is not a vanilla key, no other mod ships it,
+# and its value is non-empty and safe in every language. Mods without such a
+# key were left out. Channels assume the mod id is the channel namespace,
+# which is the norm. Entries for mods that never register a channel simply
+# never match, and cost nothing.
+#
+# AntiMod comments an entry out by itself if it fails for several different
+# players who verified every other mod (see auto-disable-after in config.yml).
 # Ordered by Modrinth download rank; with max-mods-per-sweep the first matches
 # are probed, so keep reliable mods near the top.
 # =====================================================================
 mods:
-
   xaeros-minimap:
     display-name: "Xaero's Minimap"
     channels:
       - "xaerominimap:*"
     keys:
-      - "key.category.xaerominimap.controls"
-      - "key.category.xaerobetterpvp.controls"
       - "gui.xaero_minimap"
-
-  appleskin:
-    display-name: "AppleSkin"
-    channels:
-      - "appleskin:*"
-    keys:
-      - "modmenu.summaryTranslation.appleskin"
-      - "modmenu.descriptionTranslation.appleskin"
-      - "text.autoconfig.appleskin.title"
+      - "gui.xaero_minimap_size"
+      - "gui.xaero_minimap_frame"
 
   jei:
     display-name: "Just Enough Items (JEI)"
@@ -58,7 +53,7 @@ mods:
     keys:
       - "key.jei.bookmark"
       - "key.jei.nextPage"
-      - "jei.config"
+      - "jei.tooltip.config"
 
   continuity:
     display-name: "Continuity"
@@ -66,8 +61,6 @@ mods:
       - "continuity:*"
     keys:
       - "options.continuity.title"
-      - "options.continuity.emissive_textures"
-      - "resourcePack.continuity.default.name"
 
   simple-voice-chat:
     display-name: "Simple Voice Chat"
@@ -76,16 +69,16 @@ mods:
     keys:
       - "key.voice_chat"
       - "key.voice_chat_group"
-      - "key.category.voicechat.voicechat"
+      - "message.voicechat.back"
 
   jade:
     display-name: "Jade"
     channels:
       - "jade:*"
     keys:
-      - "key.jade.config"
-      - "key.jade.narrate"
-      - "modmenu.nameTranslation.jade"
+      - "jade.locked"
+      - "jade.tnt.unstable"
+      - "jade.instrument.bit"
 
   veinminer-client:
     display-name: "VeinMiner Hotkey"
@@ -93,35 +86,8 @@ mods:
       - "veinminer_client:*"
     keys:
       - "key.veinminer_client.hold"
-      - "key.veinminer_client.config"
+      - "key.veinminer_client.toggle"
       - "key.category.veinminer_client.keybinds"
-
-  fancymenu:
-    display-name: "FancyMenu"
-    channels:
-      - "fancymenu:*"
-    keys:
-      - "fancymenu.credits"
-      - "fancymenu.editor.edit"
-      - "fancymenu.common.close"
-
-  collective:
-    display-name: "Collective"
-    channels:
-      - "collective:*"
-    keys:
-      - "collective.collective.gui.add"
-      - "collective.collective.gui.hex"
-      - "collective.collective.gui.max"
-
-  balm:
-    display-name: "Balm"
-    channels:
-      - "balm:*"
-    keys:
-      - "balm.configuration.exampleCategory"
-      - "config.jade.plugin_balm.jade"
-      - "tag.item.c.cooking_oil"
 
   creativecore:
     display-name: "CreativeCore"
@@ -129,26 +95,17 @@ mods:
       - "creativecore:*"
     keys:
       - "gui.add"
-      - "gui.day"
-      - "gui.del"
-
-  bookshelf-lib:
-    display-name: "Bookshelf"
-    channels:
-      - "bookshelf:*"
-    keys:
-      - "month.bookshelf.may"
-      - "units.bookshelf.day"
-      - "day.bookshelf.friday"
+      - "gui.save"
+      - "gui.config"
 
   fzzy-config:
     display-name: "Fzzy Config"
     channels:
       - "fzzy_config:*"
     keys:
-      - "fc.button.up"
       - "fc.button.add"
       - "fc.button.copy"
+      - "fc.button.deny"
 
   moonlight:
     display-name: "Moonlight Lib"
@@ -156,8 +113,8 @@ mods:
       - "moonlight:*"
     keys:
       - "fluid.moonlight.generic_fluid"
-      - "message.moonlight.anti_repost_link"
       - "item.minecraft.potion_splash"
+      - "item.minecraft.potion_lingering"
 
   shulkerboxtooltip:
     display-name: "Shulker Box Tooltip"
@@ -165,8 +122,8 @@ mods:
       - "shulkerboxtooltip:*"
     keys:
       - "shulkerboxtooltip.hint.full"
-      - "shulkerboxtooltip.hint.lock"
-      - "shulkerboxtooltip.config.save"
+      - "shulkerboxtooltip.hint.compact"
+      - "shulkerboxtooltip.config.validator.greater_than_zero"
 
   malilib:
     display-name: "MaLiLib"
@@ -193,16 +150,16 @@ mods:
     keys:
       - "sodium.option_impact.low"
       - "sodium.option_impact.high"
-      - "embeddium.search_bar_empty"
+      - "sodium.option_impact.medium"
 
   cobblemon:
     display-name: "Cobblemon"
     channels:
       - "cobblemon:*"
     keys:
-      - "key.cobblemon.pokedex"
       - "key.cobblemon.summary"
-      - "itemGroup.cobblemon.blocks"
+      - "key.cobblemon.hideparty"
+      - "itemGroup.cobblemon.evolution_item"
 
   patchouli:
     display-name: "Patchouli"
@@ -218,9 +175,9 @@ mods:
     channels:
       - "curios:*"
     keys:
-      - "key.curios.category"
       - "key.curios.open.desc"
       - "curios.name"
+      - "curios.slot"
 
   emi:
     display-name: "EMI"
@@ -228,17 +185,17 @@ mods:
       - "emi:*"
     keys:
       - "key.emi.back"
-      - "key.emi.forward"
-      - "emi.search"
+      - "key.emi.favorite"
+      - "emi.no_tree"
 
   supplementaries:
     display-name: "Supplementaries"
     channels:
       - "supplementaries:*"
     keys:
-      - "supplementaries.gui.controls"
-      - "supplementaries.keybind.quiver"
-      - "supplementaries.configuration.ash"
+      - "item.supplementaries.key"
+      - "block.supplementaries.jar"
+      - "block.supplementaries.cage"
 
   litematica:
     display-name: "Litematica"
@@ -254,27 +211,18 @@ mods:
     channels:
       - "carryon:*"
     keys:
-      - "key.category.carryon.key.carry.category"
       - "key.carry.desc"
       - "carryon.category.settings"
+      - "carryon.category.blacklist"
 
   waystones:
     display-name: "Waystones"
     channels:
       - "waystones:*"
     keys:
-      - "itemGroup.waystones.waystones"
-      - "waystones.iconCredits"
-      - "waystones.groups.teams"
-
-  optigui:
-    display-name: "OptiGUI"
-    channels:
-      - "optigui:*"
-    keys:
-      - "key.optigui.inspect"
-      - "key.category.optigui.inspector"
-      - "optigui.toast.inspector.title"
+      - "waystones:warp_plate"
+      - "item.waystones.warp_stone"
+      - "item.waystones.warp_scroll"
 
   rei:
     display-name: "Roughly Enough Items (REI)"
@@ -282,8 +230,8 @@ mods:
       - "roughlyenoughitems:*"
     keys:
       - "config.roughlyenoughitems.title"
-      - "rule.roughlyenoughitems.filtering.basic"
       - "rule.roughlyenoughitems.filtering.manual"
+      - "rule.roughlyenoughitems.filtering.search"
 
   natures-compass:
     display-name: "Nature's Compass"
@@ -308,7 +256,7 @@ mods:
     keys:
       - "controlify.error.hid"
       - "controlify.gui.button"
-      - "controlify.gui.is_lce"
+      - "controlify.hat_state.up"
 
   trinkets:
     display-name: "Trinkets"
@@ -324,97 +272,70 @@ mods:
     channels:
       - "comforts:*"
     keys:
-      - "itemGroup.comforts"
-      - "itemGroup.comforts.general"
-      - "comforts.skipping_day"
+      - "capability.comforts.not_sleepy"
 
   chipped:
     display-name: "Chipped"
     channels:
       - "chipped:*"
     keys:
-      - "itemGroup.chipped.main"
-      - "text.chipped.craft"
-      - "text.chipped.single"
-
-  lootr:
-    display-name: "Lootr"
-    channels:
-      - "lootr:*"
-    keys:
-      - "itemGroup.lootr"
-      - "itemGroup.lootr.lootr"
-      - "lootr.message.decayed"
+      - "block.chipped.loom_table"
+      - "block.chipped.glassblower"
+      - "block.chipped.mason_table"
 
   open-parties-and-claims:
     display-name: "Open Parties and Claims"
     channels:
       - "openpartiesandclaims:*"
     keys:
-      - "key.category.openpartiesandclaims.controls"
-      - "option.openpartiesandclaims.permissions/v1"
       - "gui.xaero_pac_back"
+      - "gui.xaero_pac_exit"
+      - "gui.xaero_pac_next"
 
   modern-ui:
     display-name: "Modern UI"
     channels:
       - "modernui:*"
     keys:
-      - "key.modernui.zoom"
       - "key.modernui.openCenter"
       - "modernui.center.title"
+      - "modernui.windowMode.normal"
 
   kiwi:
     display-name: "Kiwi"
     channels:
       - "kiwi:*"
     keys:
-      - "key.kiwi.builders_button2"
-      - "modmenu.nameTranslation.kiwi"
-      - "modmenu.descriptionTranslation.kiwi"
+      - "gui.kiwi.cosmetic"
+      - "tip.kiwi.click_here"
+      - "cosmetic.snownee.xmas"
 
   travelersbackpack:
     display-name: "Traveler's Backpack"
     channels:
       - "travelersbackpack:*"
     keys:
-      - "key.travelersbackpack.sort"
-      - "key.travelersbackpack.ability"
-      - "key.category.travelersbackpack.controls"
+      - "key.travelersbackpack.inventory"
+      - "key.travelersbackpack.cycle_tool"
+      - "block.travelersbackpack.bat"
 
   toms-storage:
     display-name: "Tom's Simple Storage Mod"
     channels:
       - "toms_storage:*"
     keys:
-      - "key.toms_storage.open_terminal"
-      - "itemGroup.toms_storage.tab"
-      - "tag.toms_storage.trims"
+      - "tooltip.toms_storage.loop"
+      - "tooltip.toms_storage.empty"
+      - "tooltip.toms_storage.filtered"
 
   amendments:
     display-name: "Amendments"
     channels:
       - "amendments:*"
     keys:
-      - "amendments.configuration.bell"
-      - "amendments.configuration.cake"
-      - "amendments.configuration.misc"
-
-  supermartijn642s-core-lib:
-    display-name: "SuperMartijn642's Core Lib"
-    channels:
-      - "supermartijn642corelib:*"
-    keys:
-      - "supermartijn642corelib.widgets.scrollbar.narration"
-
-  better-combat:
-    display-name: "Better Combat"
-    channels:
-      - "bettercombat:*"
-    keys:
-      - "key.category.bettercombat.main"
-      - "keybinds.bettercombat.feint"
-      - "text.autoconfig.bettercombat.title"
+      - "fluid.amendments.dye"
+      - "gui.amendments.ink.red"
+      - "gui.amendments.ink.aqua"
 
   farmers-delight-refabricated:
     display-name: "Farmer's Delight Refabricated"
@@ -422,8 +343,8 @@ mods:
       - "farmersdelight:*"
     keys:
       - "itemGroup.farmersdelight"
-      - "farmersdelight.configuration.debug"
-      - "farmersdelight.configuration.title"
+      - "item.farmersdelight.ham"
+      - "item.farmersdelight.rice"
 
   yes-steve-model:
     display-name: "Yes Steve Model"
@@ -431,35 +352,26 @@ mods:
       - "yes_steve_model:*"
     keys:
       - "key.yes_steve_model.player_model.desc"
-      - "key.yes_steve_model.lock_roulette.desc"
-      - "key.category.yes_steve_model"
+      - "key.yes_steve_model.debug_animation.desc"
+      - "gui.yes_steve_model.close"
 
   deeperdarker:
     display-name: "Deeper and Darker"
     channels:
       - "deeperdarker:*"
     keys:
-      - "key.deeperdarker.boost"
-      - "key.deeperdarker.transmit"
-      - "key.categories.deeperdarker"
+      - "block.deeperdarker.echo_log"
+      - "entity.deeperdarker.stalker"
+      - "item.deeperdarker.echo_boat"
 
   immersive-aircraft:
     display-name: "Immersive Aircraft"
     channels:
       - "immersive_aircraft:*"
     keys:
-      - "key.immersive_aircraft.boost"
-      - "key.immersive_aircraft.dismount"
       - "itemGroup.immersive_aircraft.immersive_aircraft_tab"
-
-  jamlib:
-    display-name: "JamLib"
-    channels:
-      - "jamlib:*"
-    keys:
-      - "config.jamlib.open"
-      - "config.jamlib.reset"
-      - "text.jamlib.renamed_1.1"
+      - "item.immersive_aircraft.hull"
+      - "item.immersive_aircraft.sail"
 
   journeymap:
     display-name: "JourneyMap"
@@ -468,7 +380,7 @@ mods:
     keys:
       - "key.journeymap.day"
       - "key.journeymap.zoom_in"
-      - "key.category.journeymap.hotkeys"
+      - "jm.server.allow_journeymap"
 
   txnilib:
     display-name: "TxniLib"
@@ -492,63 +404,36 @@ mods:
     channels:
       - "exposure:*"
     keys:
-      - "key.exposure.camera_controls"
-      - "itemGroup.exposure.exposure"
-      - "exposure.configuration.ui"
-
-  particular:
-    display-name: "Particular"
-    channels:
-      - "particular:*"
-    keys:
-      - "text.config.particular.title"
-      - "text.config.particular.option.cascades"
-      - "text.config.particular.option.caveDust"
-
-  ping-wheel:
-    display-name: "Ping Wheel"
-    channels:
-      - "pingwheel:*"
-    keys:
-      - "key.pingwheel.open_settings"
-      - "key.pingwheel.ping_location"
-      - "key.category.pingwheel.name"
-
-  easy-magic:
-    display-name: "Easy Magic"
-    channels:
-      - "easymagic:*"
-    keys:
-      - "menu.easymagic.enchanting.reroll"
-      - "tag.item.easymagic.reroll_catalysts"
-      - "menu.easymagic.enchanting.reroll.one"
+      - "item.exposure.camera"
+      - "block.exposure.lightroom"
+      - "item.exposure.color_film"
 
   artifacts:
     display-name: "Artifacts"
     channels:
       - "artifacts:*"
     keys:
-      - "artifacts.config.title"
-      - "artifacts.creative_tab"
-      - "artifacts.tooltip.cosmetic"
+      - "artifacts.subtitles.entity.mimic.hurt"
+      - "artifacts.subtitles.entity.mimic.open"
+      - "artifacts.subtitles.entity.mimic.close"
 
   axiom:
     display-name: "Axiom"
     channels:
       - "axiom:*"
     keys:
-      - "key.category.axiom.keybind"
-      - "key.category.axiom.keybind_capabilities"
-      - "key.category.axiom.keybind_builder_tools"
+      - "axiom.tool.melt"
+      - "axiom.tool.rock"
+      - "axiom.tool.text"
 
   sophisticated-core-unofficial-fabric-port:
     display-name: "Sophisticated Core (Unofficial Fabric port)"
     channels:
       - "sophisticatedcore:*"
     keys:
-      - "itemGroup.sophisticatedcore"
-      - "item.sophisticatedcore.xp_bucket"
       - "gui.sophisticatedcore.upgrades.pump"
+      - "gui.sophisticatedcore.upgrades.tank"
+      - "gui.sophisticatedcore.upgrades.void"
 
   create-steam-n-rails:
     display-name: "Create: Steam 'n' Rails"
@@ -556,17 +441,15 @@ mods:
       - "railways:*"
     keys:
       - "itemGroup.railways"
-      - "itemGroup.railways_caps"
-      - "itemGroup.railways_tracks"
+      - "railways.whistle.set"
+      - "railways.whistle.clear"
 
   mmmmmmmmmmmm:
     display-name: "MmmMmmMmmMmm"
     channels:
       - "dummmmmmy:*"
     keys:
-      - "dummmmmmy.configuration.general"
-      - "dummmmmmy.configuration.visuals"
-      - "dummmmmmy.configuration.boss_mode"
+      - "entity.dummmmmmy.target_dummy"
 
   forge-config-screens:
     display-name: "Forge Config Screens"
@@ -582,9 +465,9 @@ mods:
     channels:
       - "fallingtree:*"
     keys:
-      - "enchantment.fallingtree.chopper"
       - "text.autoconfig.fallingtree.title"
-      - "command.fallingtree.toggle.enabled"
+      - "text.autoconfig.fallingtree.category.tools"
+      - "text.autoconfig.fallingtree.category.trees"
 
   bclib:
     display-name: "BCLib"
@@ -600,18 +483,18 @@ mods:
     channels:
       - "flashback:*"
     keys:
-      - "key.category.flashback.keybind"
-      - "modmenu.nameTranslation.flashback"
-      - "flashback.tp"
+      - "flashback.select_replay"
+      - "flashback.select_replay.open"
+      - "flashback.select_replay.replay"
 
   subtle-effects:
     display-name: "Subtle Effects"
     channels:
       - "subtle_effects:*"
     keys:
-      - "chat.subtle_effects.prefix"
       - "config.subtle_effects.items"
       - "config.subtle_effects.blocks"
+      - "config.subtle_effects.general"
 
   explorers-compass:
     display-name: "Explorer's Compass"
@@ -627,45 +510,27 @@ mods:
     channels:
       - "friendsandfoes:*"
     keys:
-      - "entity.friendsandfoes.crab"
-      - "effect.friendsandfoes.glide"
-      - "effect.friendsandfoes.reach"
-
-  azurelib:
-    display-name: "AzureLib"
-    channels:
-      - "azurelib:*"
-    keys:
-      - "key.azurelib.fire"
-      - "key.azurelib.scope"
-      - "config.screen.azurelib"
+      - "item.friendsandfoes.buttercup"
+      - "block.friendsandfoes.buttercup"
+      - "entity.friendsandfoes.moobloom"
 
   sophisticated-backpacks-unoffical-fabric-port:
     display-name: "Sophisticated Backpacks (Unoffical Fabric port)"
     channels:
       - "sophisticatedbackpacks:*"
     keys:
-      - "itemGroup.sophisticatedbackpacks"
       - "keybind.sophisticatedbackpacks.sort"
       - "item.sophisticatedbackpacks.backpack"
-
-  carpet:
-    display-name: "Carpet"
-    channels:
-      - "carpet:*"
-    keys:
-      - "carpet.category.tnt"
-      - "carpet.category.bugfix"
-      - "carpet.category.client"
+      - "block.sophisticatedbackpacks.backpack"
 
   do-a-barrel-roll:
     display-name: "Do a Barrel Roll"
     channels:
       - "do_a_barrel_roll:*"
     keys:
-      - "key.do_a_barrel_roll.pitch_up"
-      - "key.do_a_barrel_roll.yaw_left"
-      - "toast.do_a_barrel_roll"
+      - "config.do_a_barrel_roll.thrust"
+      - "config.do_a_barrel_roll.banking"
+      - "config.do_a_barrel_roll.desktop"
 
   the-lost-cities:
     display-name: "The Lost Cities"
@@ -679,9 +544,9 @@ mods:
     channels:
       - "createaddition:*"
     keys:
-      - "itemGroup.createaddition.main"
       - "createaddition.recipe.rolling"
       - "createaddition.recipe.charging"
+      - "createaddition.tooltip.relay.info"
 
   aquamirae:
     display-name: "Aquamirae"
@@ -698,26 +563,24 @@ mods:
       - "copycats:*"
     keys:
       - "itemGroup.copycats.main"
-      - "itemGroup.copycats.functional"
       - "item.copycats.copycat_box"
+      - "block.copycats.copycat_beam"
 
   cobblemon-pokenav:
     display-name: "Cobblemon PokeNav"
     channels:
       - "cobblenav:*"
     keys:
-      - "itemGroup.cobblenav.general"
-      - "gui.cobblenav.true"
-      - "gui.cobblenav.false"
+      - "item.cobblenav.pokenav_item"
 
   creeper-overhaul:
     display-name: "Creeper Overhaul"
     channels:
       - "creeperoverhaul:*"
     keys:
-      - "itemGroup.creeperoverhaul.item_group"
-      - "gui.creeperoverhaul.cosmetics"
       - "block.creeperoverhaul.tiny_cactus"
+      - "entity.creeperoverhaul.cave_creeper"
+      - "entity.creeperoverhaul.beach_creeper"
 
   create-fabric:
     display-name: "Create Fabric"
@@ -726,16 +589,7 @@ mods:
     keys:
       - "itemGroup.create.base"
       - "itemGroup.create.palettes"
-      - "create.boiler.heat"
-
-  vanillabackport:
-    display-name: "Vanilla Backport"
-    channels:
-      - "vanillabackport:*"
-    keys:
-      - "entity.minecraft.custom_boat"
-      - "enchantment.minecraft.lunge.desc"
-      - "fieldguide.name.minecraft.pale_oak_sapling"
+      - "create.menu.return"
 
   cobblemon-additions:
     display-name: "Cobblemon additions"
@@ -743,8 +597,8 @@ mods:
       - "cobblemon-additions:*"
     keys:
       - "itemGroup.bca"
-      - "block.bca.pokemon_spawner"
-      - "block.bca.pokemon_trial_spawner"
+      - "npc.rhett.name"
+      - "npc.nurse_joy.name"
 
   crafting-tweaks:
     display-name: "Crafting Tweaks"
@@ -753,16 +607,7 @@ mods:
     keys:
       - "key.craftingtweaks.clear"
       - "key.craftingtweaks.rotate"
-      - "craftingtweaks.configuration.client"
-
-  pehkui:
-    display-name: "Pehkui"
-    channels:
-      - "pehkui:*"
-    keys:
-      - "pehkui.configgui.scaledReach"
-      - "pehkui.configgui.scaledHealth"
-      - "pehkui.configgui.scaledMotion"
+      - "tooltip.craftingtweaks.clear"
 
   aether:
     display-name: "The Aether"
@@ -778,18 +623,18 @@ mods:
     channels:
       - "simplyswords:*"
     keys:
-      - "key.simplyswords.offhand_ability"
-      - "key.simplyswords.mainhand_ability"
-      - "key.categories.simplyswords"
+      - "itemGroup.simplyswords.simplyswords"
+      - "effect.simplyswords.omen"
+      - "effect.simplyswords.freeze"
 
   hardcore-revival:
     display-name: "Hardcore Revival"
     channels:
       - "hardcorerevival:*"
     keys:
-      - "hardcorerevival.configuration.title"
-      - "hardcorerevival.configuration.allowBows"
-      - "hardcorerevival.configuration.allowPistols"
+      - "gui.hardcorerevival.knocked_out"
+      - "gui.hardcorerevival.being_rescued"
+      - "gui.hardcorerevival.wait_for_rescue"
 
   fabric-seasons:
     display-name: "Fabric Seasons"
@@ -797,26 +642,26 @@ mods:
       - "seasons:*"
     keys:
       - "tooltip.seasons.fall"
-      - "chat.seasons.show_once"
       - "tooltip.seasons.spring"
+      - "tooltip.seasons.summer"
 
   the-bumblezone-fabric:
     display-name: "The Bumblezone - Fabric"
     channels:
       - "the_bumblezone:*"
     keys:
-      - "key.the_bumblezone.beehemoth_up"
-      - "key.the_bumblezone.beehemoth_down"
-      - "itemGroup.the_bumblezone"
+      - "biome.the_bumblezone.hive_wall"
+      - "biome.the_bumblezone.hive_pillar"
+      - "entity.the_bumblezone.honey_slime"
 
   sophisticated-storage-unofficial-fabric-port:
     display-name: "Sophisticated Storage (Unofficial Fabric port)"
     channels:
       - "sophisticatedstorage:*"
     keys:
-      - "itemGroup.sophisticatedstorage"
       - "keybind.sophisticatedstorage.sort"
-      - "gui.sophisticatedstorage.tint.main"
+      - "wood_name.sophisticatedstorage.oak"
+      - "item.sophisticatedstorage.controller"
 
   vein-mining:
     display-name: "Vein Mining"
@@ -825,7 +670,7 @@ mods:
     keys:
       - "key.veinmining.category"
       - "key.veinmining.activate.desc"
-      - "gui.veinmining.config.blocks.name"
+      - "enchantment.veinmining.vein_mining"
 
   trading-post:
     display-name: "Trading Post"
@@ -842,8 +687,8 @@ mods:
       - "immersive_melodies:*"
     keys:
       - "itemGroup.immersive_melodies.immersive_melodies_tab"
-      - "immersive_melodies.back"
       - "immersive_melodies.help"
+      - "immersive_melodies.play"
 
   obscure-api:
     display-name: "Obscure API"
@@ -854,75 +699,39 @@ mods:
       - "obscure_api.parry"
       - "obscure_api.accuracy"
 
-  charm-of-undying:
-    display-name: "Charm of Undying"
-    channels:
-      - "charmofundying:*"
-    keys:
-      - "charmofundying.networking.failed"
-      - "gui.charmofundying.config.xOffset.name"
-      - "gui.charmofundying.config.yOffset.name"
-
   emi-loot:
     display-name: "EMI Loot"
     channels:
       - "emi_loot:*"
     keys:
-      - "emi_loot.axe.iron"
-      - "emi_loot.axe.wood"
-      - "emi_loot.hoe.iron"
+      - "enchantment.emi_loot.random"
+      - "emi.category.emi_loot.chest_loot"
+      - "emi.category.emi_loot.block_drops"
 
   cobbreeding:
     display-name: "Cobbreeding"
     channels:
       - "cobbreeding:*"
     keys:
-      - "cobbreeding.msg.decrypt.fail"
-      - "cobbreeding.msg.command.error"
-      - "cobbreeding.config_screen.core"
+      - "item.cobbreeding.pokemon_egg"
 
   rechiseled:
     display-name: "Rechiseled"
     channels:
       - "rechiseled:*"
     keys:
-      - "rechiseled.item_group"
-      - "rechiseled.item.chisel"
-      - "rechiseled.block.dirt_soil"
-
-  fogoverrides:
-    display-name: "Fog Overrides"
-    channels:
-      - "fogoverrides:*"
-    keys:
-      - "text.fogoverrides.title"
-      - "text.fogoverrides.keybinds"
-      - "text.fogoverrides.subcat.rain"
-
-  noxesium:
-    display-name: "Noxesium"
-    channels:
-      - "noxesium:*"
-    keys:
-      - "itemGroup.noxesium.server_items"
-      - "noxesium.options.enum.top"
-      - "noxesium.options.enum.true"
-
-  caelus:
-    display-name: "Caelus API"
-    channels:
-      - "caelus:*"
-    keys:
-      - "attribute.name.generic.caelus.flight"
+      - "rechiseled.chiseling.preview"
+      - "rechiseled.tooltip.connecting"
+      - "rechiseled.chiseling.chisel_all"
 
   species:
     display-name: "Species"
     channels:
       - "species:*"
     keys:
-      - "key.categories.species"
-      - "itemGroup.species.species"
-      - "key.extend"
+      - "entity.species.birt"
+      - "effect.species.birtd"
+      - "entity.species.limpet"
 
   rctmod:
     display-name: "Radical Cobblemon Trainers"
@@ -930,17 +739,6 @@ mods:
       - "rctmod:*"
     keys:
       - "itemGroup.rctmod"
-      - "entity.rctmod.trainer"
-      - "gui.rctmod.mouse.left"
-
-  viafabricplus:
-    display-name: "ViaFabricPlus"
-    channels:
-      - "viafabricplus:*"
-    keys:
-      - "base.viafabricplus.on"
-      - "base.viafabricplus.off"
-      - "base.viafabricplus.auto"
 
   spawn-mod:
     display-name: "Spawn"
@@ -956,9 +754,9 @@ mods:
     channels:
       - "tslatentitystatus:*"
     keys:
-      - "tslatentitystatus.configuration.HUD Settings"
-      - "tslatentitystatus.configuration.General Settings"
-      - "tslatentitystatus.configuration.Particle Settings"
+      - "config.tes.hud.armour"
+      - "config.tes.hud.enabled"
+      - "config.tes.hud.opacity"
 
   enderman-overhaul:
     display-name: "Enderman Overhaul"
@@ -966,17 +764,17 @@ mods:
       - "endermanoverhaul:*"
     keys:
       - "itemGroup.endermanoverhaul.main"
-      - "config.endermanoverhaul.title"
       - "entity.endermanoverhaul.scarab"
+      - "entity.endermanoverhaul.spirit"
 
   cobblefurnies:
     display-name: "CobbleFurnies"
     channels:
       - "cobblefurnies:*"
     keys:
-      - "block.cobblefurnies.tv"
-      - "block.cobblefurnies.ces"
       - "entity.cobblefurnies.seat"
+      - "block.cobblefurnies.red_sink"
+      - "item_group.cobblefurnies.tab"
 
   create-big-cannons:
     display-name: "Create Big Cannons"
@@ -993,7 +791,6 @@ mods:
       - "enchantinginfuser:*"
     keys:
       - "block.enchantinginfuser.enchanting_infuser"
-      - "gui.enchantinginfuser.infusing.tooltip.points"
       - "block.enchantinginfuser.advanced_enchanting_infuser"
 
   snow-real-magic:
@@ -1001,9 +798,9 @@ mods:
     channels:
       - "snowrealmagic:*"
     keys:
-      - "modmenu.nameTranslation.snowrealmagic"
-      - "modmenu.descriptionTranslation.snowrealmagic"
-      - "snowrealmagic.config.debug"
+      - "block.snowrealmagic.slab"
+      - "block.snowrealmagic.wall"
+      - "block.snowrealmagic.fence"
 
   bosses-of-mass-destruction:
     display-name: "Bosses of Mass Destruction"
@@ -1014,59 +811,40 @@ mods:
       - "entity.bosses_of_mass_destruction.lich"
       - "entity.bosses_of_mass_destruction.comet"
 
-  advanced-loot-info:
-    display-name: "Advanced Loot Info (ALI)"
-    channels:
-      - "ali:*"
-    keys:
-      - "ali.type.entry.tag"
-      - "ali.number.var.luck"
-      - "ali.type.entry.item"
-
   emi-ores:
     display-name: "EMI Ores"
     channels:
       - "emi_ores:*"
     keys:
-      - "emi.category.emi_ores.geode"
       - "emi.category.emi_ores.oregen"
-      - "emi_ores.distribution.uniform"
+      - "emi_ores.discard_on_air_chance"
 
   lets-do-meadow:
     display-name: "[Let's Do] Meadow"
     channels:
       - "meadow:*"
     keys:
-      - "meadow.configuration.Food"
-      - "meadow.configuration.Misc"
-      - "meadow.configuration.Armor"
-
-  gd656killicon:
-    display-name: "GD656Killicon"
-    channels:
-      - "gd656killicon:*"
-    keys:
-      - "key.gd656killicon.open_config"
-      - "key.gd656killicon.open_history"
-      - "gd656killicon.config.reset"
+      - "item.meadow.rennet"
+      - "block.meadow.camera"
+      - "block.meadow.enzian"
 
   tweakeroo:
     display-name: "Tweakeroo"
     channels:
       - "tweakeroo:*"
     keys:
-      - "modmenu.descriptionTranslation.tweakeroo"
       - "tweakeroo.message.value.on"
       - "tweakeroo.message.value.off"
+      - "tweakeroo.label.snap_aim_mode.yaw"
 
   cobblemon-fight-or-flight-reborn:
     display-name: "Cobblemon Fight or Flight Reborn"
     channels:
       - "fightorflight:*"
     keys:
-      - "key.fightorflight.moveslot1"
-      - "key.fightorflight.moveslot2"
-      - "fightorflight.behaviour.fights_range.name"
+      - "key.fightorflight.startbattle"
+      - "key.fightorflight.categories.fightorflight"
+      - "item.fightorflight.pokestaff"
 
   emotecraft:
     display-name: "Emotecraft"
@@ -1075,16 +853,16 @@ mods:
     keys:
       - "key.emotecraft.stop"
       - "key.emotecraft.debug"
-      - "key.category.emotecraft.keybinding"
+      - "emotecraft.sure"
 
   lets-do-farm-charm:
     display-name: "[Let's Do] Farm & Charm"
     channels:
       - "farm_and_charm:*"
     keys:
-      - "hud.farm_and_charm.add"
       - "item.farm_and_charm.oat"
-      - "hud.farm_and_charm.grill"
+      - "item.farm_and_charm.corn"
+      - "item.farm_and_charm.plow"
 
   crawl:
     display-name: "Crawl"
@@ -1092,8 +870,6 @@ mods:
       - "crawl:*"
     keys:
       - "key.crawl"
-      - "crawl.gui.options_title"
-      - "crawl.config.replace_animation"
 
   bountiful:
     display-name: "Bountiful"
@@ -1111,16 +887,16 @@ mods:
     keys:
       - "itemGroup.immersive_armors.immersive_armors_tab"
       - "immersive_armors.dyeable"
-      - "tag.item.immersive_armors.axes"
+      - "item.immersive_armors.bone_boots"
 
   lets-do-candlelight-farmcharm-compat:
     display-name: "[Let's Do] Candlelight - Farm&Charm compat"
     channels:
       - "candlelight:*"
     keys:
-      - "candlelight.configuration.food"
-      - "candlelight.configuration.misc"
-      - "candlelight.configuration.effects"
+      - "block.candlelight.lamp"
+      - "block.candlelight.rose"
+      - "block.candlelight.sofa"
 
   serene-seasons:
     display-name: "Serene Seasons"
@@ -1136,9 +912,7 @@ mods:
     channels:
       - "cobbledollars:*"
     keys:
-      - "key.cobbledollars.scroll"
-      - "gui.cobbledollars.buy"
-      - "gui.cobbledollars.bank"
+      - "entity.cobbledollars.cobble_merchant"
 
   adventurez:
     display-name: "AdventureZ"
@@ -1154,9 +928,9 @@ mods:
     channels:
       - "chatpatches:*"
     keys:
-      - "modmenu.nameTranslation.chatpatches"
-      - "text.chatpatches.name"
       - "text.chatpatches.time"
+      - "text.chatpatches.hover"
+      - "text.chatpatches.title"
 
   formations:
     display-name: "Formations (Structure Library)"
@@ -1172,36 +946,27 @@ mods:
     channels:
       - "galosphere:*"
     keys:
-      - "itemGroup.galosphere.galosphere"
-      - "galosphere.midnightconfig.title"
-      - "galosphere.midnightconfig.pillagerDropPalladiumIngot"
+      - "entity.galosphere.sparkle"
+      - "entity.galosphere.spectre"
+      - "item.galosphere.glow_flare"
 
   show-me-your-skin:
     display-name: "Show Me Your Skin!"
     channels:
       - "showmeyourskin:*"
     keys:
-      - "key.showmeyourskin.global_toggle"
       - "key.showmeyourskin.open_settings"
-      - "gui.showmeyourskin.armorScreen.title"
-
-  every-compat:
-    display-name: "Every Compat (Wood Good)"
-    channels:
-      - "everycomp:*"
-    keys:
-      - "itemGroup.everycomp"
-      - "itemGroup.everycomp.everycomp"
-      - "everycomp.configuration.block"
+      - "category.showmeyourskin.showmeyourskin"
+      - "gui.showmeyourskin.armorScreen.glintTooltip"
 
   lets-do-bakery-farmcharm-compat:
     display-name: "[Let's Do] Bakery - Farm&Charm Compat"
     channels:
       - "bakery:*"
     keys:
-      - "bakery.configuration.Food"
-      - "bakery.configuration.Misc"
-      - "bakery.configuration.Effects"
+      - "block.bakery.jar"
+      - "block.bakery.tray"
+      - "item.bakery.donut"
 
   trade-cycling:
     display-name: "Trade Cycling"
@@ -1211,23 +976,14 @@ mods:
       - "key.trade_cycling.cycle_trades"
       - "tooltip.trade_cycling.cycle_trades"
 
-  expanded-delight:
-    display-name: "Expanded Delight"
-    channels:
-      - "expandeddelight:*"
-    keys:
-      - "itemGroup.expandeddelight.group"
-      - "expandeddelight.rei.juicing"
-      - "item.expandeddelight.peanut"
-
   combat-roll:
     display-name: "Combat Roll"
     channels:
       - "combat_roll:*"
     keys:
-      - "key.category.combat_roll.main"
       - "gui.combat_roll.hud"
       - "combat_roll.mod_name"
+      - "gui.combat_roll.close"
 
   minihud:
     display-name: "MiniHUD"
@@ -1235,8 +991,8 @@ mods:
       - "minihud:*"
     keys:
       - "minihud.gui.label.color"
-      - "minihud.message.no_seed"
-      - "minihud.label.shapes.box"
+      - "minihud.gui.button.remove"
+      - "minihud.label.shapes.circle"
 
   kaleidoscope-cookery:
     display-name: "Kaleidoscope Cookery"
@@ -1252,9 +1008,9 @@ mods:
     channels:
       - "legendarymonuments:*"
     keys:
-      - "itemGroup.legendarymonuments.legendary_monuments_group"
-      - "item.legendarymonuments.jar"
-      - "block.legendarymonuments.stool"
+      - "block.legendarymonuments.cobalion_footprints"
+      - "block.legendarymonuments.virizion_footprints"
+      - "block.legendarymonuments.terrakion_footprints"
 
   fabric-seasons-extras:
     display-name: "Fabric Seasons: Extras"
@@ -1272,7 +1028,6 @@ mods:
     keys:
       - "key.trashslot.delete"
       - "key.trashslot.toggle"
-      - "trashslot.hint.deletionDenied"
 
   sable:
     display-name: "Sable"
@@ -1288,45 +1043,44 @@ mods:
     channels:
       - "sawmill:*"
     keys:
-      - "sawmill.category.wood_cutting"
       - "block.sawmill.sawmill"
       - "container.sawmill.sawmill"
+      - "subtitles.sawmill.ui.sawmill.take_result"
 
   clientsort:
     display-name: "Client Sort"
     channels:
       - "clientsort:*"
     keys:
-      - "key.clientsort.edit"
-      - "key.clientsort.op.sort"
-      - "clientsort.name"
+      - "option.clientsort.general"
+      - "option.clientsort.sorting"
 
   spell-engine:
     display-name: "Spell Engine"
     channels:
       - "spell_engine:*"
     keys:
-      - "itemGroup.spell_engine.general"
       - "gui.spell_engine.hud"
       - "gui.spell_engine.icon"
+      - "spell_engine.mod_name"
 
   ae2:
     display-name: "Applied Energistics 2"
     channels:
       - "ae2:*"
     keys:
-      - "key.ae2.guide"
-      - "key.ae2.category"
-      - "ae2.guidebook.Close"
+      - "ae2.permission_denied"
+      - "key.toggle_focus.desc"
+      - "gui.ae2.No"
 
   critters-and-companions:
     display-name: "Critters and Companions"
     channels:
       - "crittersandcompanions:*"
     keys:
-      - "itemGroup.crittersandcompanions"
       - "item.crittersandcompanions.clam"
-      - "item.crittersandcompanions.silk"
+      - "item.crittersandcompanions.pearl"
+      - "entity.crittersandcompanions.otter"
 
   valkyrien-skies:
     display-name: "Valkyrien Skies"
@@ -1334,17 +1088,17 @@ mods:
       - "valkyrienskies:*"
     keys:
       - "key.valkyrienskies.ship_down"
-      - "key.valkyrienskies.ship_cruise"
-      - "itemGroup.valkyrienSkies"
+      - "block.valkyrienskies.test_chair"
+      - "category.valkyrienskies.driving"
 
   create-enchantment-industry:
     display-name: "Create: Enchantment Industry"
     channels:
       - "create_enchantment_industry:*"
     keys:
-      - "itemGroup.create_enchantment_industry.base"
-      - "stat.create_enchantment_industry.forge"
-      - "stat.create_enchantment_industry.print"
+      - "block.create_enchantment_industry.printer"
+      - "block.create_enchantment_industry.blaze_enchanter"
+      - "advancement.create_enchantment_industry.spirit_taking"
 
   ribbits:
     display-name: "Ribbits"
@@ -1352,35 +1106,26 @@ mods:
       - "ribbits:*"
     keys:
       - "itemGroup.ribbits.general"
-      - "ribbits.options.supporter_hat_button"
       - "item.ribbits.maraca"
+      - "entity.ribbits.ribbit"
 
   ad-astra:
     display-name: "Ad Astra"
     channels:
       - "ad_astra:*"
     keys:
-      - "key.ad_astra.open_radio"
-      - "key.ad_astra.toggle_suit_flight"
-      - "key.categories.adastra"
-
-  accessories-compat-layer:
-    display-name: "Accessories Compatibility Layer"
-    channels:
-      - "accessories_compat_layer:*"
-    keys:
-      - "accessories.slot.pocket"
-      - "text.config.accessories_compat.title"
-      - "text.config.accessories_compat.option.addPocketSlot"
+      - "block.ad_astra.oil"
+      - "block.ad_astra.fuel"
+      - "item.ad_astra.wheel"
 
   snowy-spirit:
     display-name: "Snowy Spirit"
     channels:
       - "snowyspirit:*"
     keys:
-      - "tab.snowyspirit"
-      - "entity.snowyspirit.sled"
-      - "item.snowyspirit.eggnog"
+      - "item.snowyspirit.ginger"
+      - "block.snowyspirit.ginger"
+      - "block.snowyspirit.wreath"
 
   small-ships:
     display-name: "Small Ships"
@@ -1388,8 +1133,8 @@ mods:
       - "smallships:*"
     keys:
       - "key.smallships.ship_sail"
-      - "key.smallships.cannon_aim"
-      - "smallships.creative_mode_tab"
+      - "key.smallships.ship_inventory"
+      - "category.smallships"
 
   the-graveyard-fabric:
     display-name: "The Graveyard (FABRIC)"
@@ -1397,8 +1142,8 @@ mods:
       - "graveyard:*"
     keys:
       - "itemGroup.graveyard.group"
-      - "block.graveyard.altar"
-      - "entity.graveyard.lich"
+      - "entity.graveyard.ghoul"
+      - "block.graveyard.red_urn"
 
   automobility:
     display-name: "Automobility"
@@ -1415,26 +1160,22 @@ mods:
       - "connectiblechains:*"
     keys:
       - "entity.connectiblechains.chain_knot"
-      - "text.autoconfig.connectiblechains.title"
-      - "entity.connectiblechains.chain_collision"
 
   guard-villagers-fabricquilt:
     display-name: "Guard Villagers (Fabric/Quilt)"
     channels:
       - "guardvillagers:*"
     keys:
-      - "guardvillagers.midnightconfig.raidAnimals"
-      - "guardvillagers.midnightconfig.friendlyFire"
-      - "guardvillagers.midnightconfig.attackAllMobs"
+      - "entity.guardvillagers.guard"
+      - "item.guardvillagers.guard_spawn_egg"
 
   simpletms-tms-and-trs-for-cobblemon:
     display-name: "SimpleTMs: TMs and TRs for Cobblemon"
     channels:
       - "simpletms:*"
     keys:
-      - "itemGroup.simpletms.tm_items"
-      - "itemGroup.simpletms.tr_items"
-      - "itemGroup.simpletms.custom_tm_items"
+      - "item.simpletms.tm_blank"
+      - "item.simpletms.tr_blank"
 
   dragonloot:
     display-name: "DragonLoot"
@@ -1450,45 +1191,36 @@ mods:
     channels:
       - "adorablehamsterpets:*"
     keys:
-      - "key.adorablehamsterpets.pet_hamster"
-      - "key.adorablehamsterpets.ride_hamster"
-      - "key.categories.adorablehamsterpets.main"
+      - "key.adorablehamsterpets.throw_hamster"
+      - "itemgroup.adorablehamsterpets.main"
+      - "item.adorablehamsterpets.cheese"
 
   cobblemonraiddens:
     display-name: "Cobblemon Raid Dens"
     channels:
       - "cobblemonraiddens:*"
     keys:
-      - "key.cobblemonraiddens.deny"
-      - "key.cobblemonraiddens.mouse"
       - "itemgroup.cobblemonraiddens.raid_den_tab"
+      - "feature.cobblemonraiddens.mega"
+      - "feature.cobblemonraiddens.tera"
 
   fwaystones:
     display-name: "Wraith Waystones"
     channels:
       - "fwaystones:*"
     keys:
-      - "itemGroup.fwaystones.fwaystones"
       - "fwaystones.cost.xp"
       - "fwaystones.cost.free"
-
-  treechop:
-    display-name: "HT's TreeChop"
-    channels:
-      - "treechop:*"
-    keys:
-      - "treechop.gui.big_on"
-      - "treechop.gui.big_off"
-      - "treechop.codec.bad_value"
+      - "fwaystones.cost.item"
 
   immersive-paintings:
     display-name: "Immersive Paintings"
     channels:
       - "immersive_paintings:*"
     keys:
-      - "itemGroup.immersive_paintings"
-      - "immersive_paintings.gui.done"
-      - "immersive_paintings.gui.hide"
+      - "immersive_paintings.frame.none"
+      - "immersive_paintings.frame.simple"
+      - "immersive_paintings.material.oak"
 
   inmis:
     display-name: "Inmis"
@@ -1513,18 +1245,9 @@ mods:
     channels:
       - "bedrockify:*"
     keys:
-      - "key.category.bedrockify.bedrockify"
       - "bedrockify.hud.fps"
       - "bedrockify.options.on"
-
-  marlow-crystal-optimizer:
-    display-name: "Marlow's Crystal Optimizer"
-    channels:
-      - "marlowcrystal:*"
-    keys:
-      - "marlowcrystal.config.title"
-      - "marlowcrystal.config.keep_render"
-      - "marlowcrystal.config.update_source"
+      - "bedrockify.options.off"
 
   mutant-monsters:
     display-name: "Mutant Monsters"
@@ -1532,27 +1255,17 @@ mods:
       - "mutantmonsters:*"
     keys:
       - "itemGroup.mutantmonsters.main"
-      - "item.mutantmonsters.chemical_x"
       - "entity.mutantmonsters.body_part"
-
-  universal-graves:
-    display-name: "Universal Graves"
-    channels:
-      - "universal-graves:*"
-      - "universal_graves:*"
-    keys:
-      - "block.universal_graves.grave"
-      - "block.universal_graves.visual_grave"
-      - "item.universal_graves.grave_compass"
+      - "item.mutantmonsters.hulk_hammer"
 
   icarus:
     display-name: "Icarus"
     channels:
       - "icarus:*"
     keys:
-      - "itemGroup.icarus.items"
-      - "tag.item.icarus.melts"
-      - "tag.item.icarus.wings"
+      - "item.icarus.zanzas_wings"
+      - "item.icarus.discords_wings"
+      - "item.icarus.flandres_wings"
 
   inmisaddon:
     display-name: "InmisAddon"
@@ -1561,23 +1274,14 @@ mods:
     keys:
       - "screen.inmisaddon.backpack_screen"
 
-  skyblocker-liap:
-    display-name: "Skyblocker Hypixel Skyblock"
-    channels:
-      - "skyblocker:*"
-    keys:
-      - "key.skyblocker.toggleA"
-      - "key.skyblocker.slottext"
-      - "key.category.skyblocker.main"
-
   hybrid-aquatic:
     display-name: "Hybrid Aquatic"
     channels:
       - "hybrid_aquatic:*"
     keys:
-      - "itemGroup.hybrid_aquatic.items"
-      - "itemGroup.hybrid_aquatic.blocks"
-      - "itemGroup.hybrid_aquatic.spawn_eggs"
+      - "item.minecraft.potion.effect.thorns"
+      - "item.minecraft.potion.effect.clarity"
+      - "item.minecraft.potion.effect.glowing"
 
   voidtotem:
     display-name: "Void Totem"
@@ -1585,8 +1289,7 @@ mods:
       - "voidtotem:*"
     keys:
       - "item.voidtotem.totem_of_void_undying"
-      - "text.autoconfig.voidtotem.option.IS_INVERTED_BLOCKLIST"
-      - "text.autoconfig.voidtotem.option.BLOCKLISTED_DIMENSIONS"
+      - "advancements.voidtotem.adventure.totem_of_void_undying.title"
 
   cobblemon-battle-extras:
     display-name: "Cobblemon Battle Extras"
@@ -1594,7 +1297,6 @@ mods:
       - "cobblemon-battle-extras:*"
     keys:
       - "key.cobblemon-battle-extras.battle_logs"
-      - "key.cobblemon-battle-extras.controller_config"
       - "category.cobblemon-battle-extras"
 
   minecells:
@@ -1602,9 +1304,9 @@ mods:
     channels:
       - "minecells:*"
     keys:
-      - "itemGroup.minecells.minecells.tab.combat"
-      - "itemGroup.minecells.minecells.button.kofi"
-      - "itemGroup.minecells.minecells.button.wiki"
+      - "entity.minecells.shocker"
+      - "entity.minecells.grenadier"
+      - "entity.minecells.inquisitor"
 
   yuushya-townscape:
     display-name: "Yuushya Townscape"
@@ -1620,27 +1322,27 @@ mods:
     channels:
       - "niftycarts:*"
     keys:
-      - "key.niftycarts.slow"
-      - "key.niftycarts.action"
       - "key.categories.niftycarts"
+      - "item.niftycarts.wheel"
+      - "entity.niftycarts.plow"
 
   net-music:
     display-name: "Net Music"
     channels:
       - "netmusic:*"
     keys:
-      - "itemGroup.netmusic"
       - "item.netmusic.music_cd"
-      - "block.netmusic.computer"
+      - "tooltips.netmusic.cd.time"
+      - "tooltips.netmusic.cd.empty"
 
   lets-do-wildernature:
     display-name: "[Let's Do] WilderNature"
     channels:
       - "wildernature:*"
     keys:
-      - "wildernature.configuration.Misc"
-      - "wildernature.configuration.World"
-      - "wildernature.configuration.title"
+      - "entity.wildernature.dog"
+      - "entity.wildernature.boar"
+      - "entity.wildernature.deer"
 
   lumymon:
     display-name: "LumyMon"
@@ -1650,13 +1352,6 @@ mods:
       - "key.lumymon.dismount"
       - "key.lumymon.access_pc"
       - "itemgroup.lumymon.items_tab"
-
-  huge-structure-blocks:
-    display-name: "Huge Structure Blocks"
-    channels:
-      - "hugestructureblocks:*"
-    keys:
-      - "itemGroup.hugestructureblocks.structure_items"
 
   villagerconfig:
     display-name: "VillagerConfig"
@@ -1672,9 +1367,9 @@ mods:
     channels:
       - "prefab:*"
     keys:
-      - "key.category.prefab.structure_preview"
-      - "itemGroup.prefab.logo"
       - "prefab.gui.red"
+      - "prefab.gui.blue"
+      - "prefab.gui.cyan"
 
   yigd:
     display-name: "You're in Grave Danger"
@@ -1682,17 +1377,15 @@ mods:
       - "yigd:*"
     keys:
       - "block.yigd.grave"
-      - "button.yigd.gui.rob"
-      - "item.yigd.grave_key"
 
   frostiful:
     display-name: "Frostiful"
     channels:
       - "frostiful:*"
     keys:
-      - "frostiful.tip.walk_on_sun_lichen"
-      - "frostiful.tip.freezing_wind_extinguishes_fire"
       - "block.frostiful.icicle"
+      - "effect.frostiful.warmth"
+      - "item.frostiful.fur_boots"
 
   skills:
     display-name: "Pufferfish's Skills"
@@ -1701,7 +1394,7 @@ mods:
     keys:
       - "key.puffish_skills.open"
       - "text.puffish_skills.skills"
-      - "text.puffish_skills.buy_point"
+      - "category.puffish_skills.skills"
 
   yungs-cave-biomes:
     display-name: "YUNG's Cave Biomes"
@@ -1712,15 +1405,6 @@ mods:
       - "yungscavebiomes.advancements.root.title"
       - "yungscavebiomes.advancements.lost_caves.title"
 
-  fragmentum:
-    display-name: "Fragmentum"
-    channels:
-      - "fragmentum:*"
-    keys:
-      - "config.fragmentum.format.potency.0"
-      - "config.fragmentum.format.potency.1"
-      - "config.fragmentum.format.potency.2"
-
   wthit:
     display-name: "WTHIT"
     channels:
@@ -1728,15 +1412,15 @@ mods:
     keys:
       - "key.waila.config"
       - "key.waila.show_overlay"
-      - "key.category.waila.key"
+      - "config.waila.tts"
 
   mariums-soulslike-weaponry:
     display-name: "Marium's Soulslike Weaponry"
     channels:
       - "soulsweapons:*"
     keys:
-      - "key.soulsweapons.parry"
-      - "key.soulsweapons.show_lore"
+      - "key.soulsweapons.return_freyr_sword"
+      - "key.soulsweapons.freyr_sword_stationary"
       - "itemGroup.soulsweapons.general"
 
   libz:
@@ -1745,17 +1429,7 @@ mods:
       - "libz:*"
     keys:
       - "text.autoconfig.libz.title"
-      - "text.autoconfig.libz.option.syncConfig"
       - "text.autoconfig.libz.option.inventoryButton"
-
-  crafttweaker:
-    display-name: "CraftTweaker"
-    channels:
-      - "crafttweaker:*"
-    keys:
-      - "crafttweaker.reload.start"
-      - "crafttweaker.reload.complete"
-      - "crafttweaker.command.misc.data"
 
   botania:
     display-name: "Botania"
@@ -1763,8 +1437,8 @@ mods:
       - "botania:*"
     keys:
       - "key.botania_corporea_request"
-      - "itemGroup.botania"
       - "botania.desc"
+      - "botania.sign0"
 
   create-jetpack:
     display-name: "Create Jetpack"
@@ -1772,17 +1446,17 @@ mods:
       - "create_jetpack:*"
     keys:
       - "item.create_jetpack.jetpack"
-      - "block.create_jetpack.jetpack"
-      - "key.categories.movement.jetpack"
+      - "item.create_jetpack.jetpack.tooltip.action1"
+      - "item.create_jetpack.jetpack.tooltip.action2"
 
   minecraft-comes-alive-reborn:
     display-name: "MCA Reborn"
     channels:
       - "mca:*"
     keys:
-      - "key.mca.skin_library"
-      - "key.category.mca.mca_tab"
       - "itemGroup.mca.mca_tab"
+      - "mca.books.death.author"
+      - "mca.books.family.author"
 
   storagedrawers:
     display-name: "Storage Drawers"
@@ -1790,8 +1464,8 @@ mods:
       - "storagedrawers:*"
     keys:
       - "itemGroup.storagedrawers"
-      - "item.storagedrawers.keyring"
-      - "block.storagedrawers.mat.oak"
+      - "item.storagedrawers.drawer_key"
+      - "item.storagedrawers.shroud_key"
 
   plasmo-voice:
     display-name: "Plasmo Voice"
@@ -1800,16 +1474,16 @@ mods:
     keys:
       - "key.plasmovoice.general"
       - "key.plasmovoice.settings"
-      - "key.category.plasmovoice.name"
+      - "gui.plasmovoice.addons"
 
   joy-of-painting:
     display-name: "Joy of Painting"
     channels:
       - "xercapaint:*"
     keys:
-      - "itemGroup.xercapaint.paint_tab"
-      - "xercapaint.export.fail"
-      - "xercapaint.import.fail.5"
+      - "item.xercapaint.item_easel"
+      - "item.xercapaint.item_canvas"
+      - "item.xercapaint.item_palette"
 
   craterlib:
     display-name: "CraterLib"
@@ -1817,17 +1491,17 @@ mods:
       - "craterlib:*"
     keys:
       - "t.clc.save"
-      - "cl.buttons.edit"
       - "t.clc.quit_config"
+      - "t.clc.quit_discard"
 
   skinshuffle:
     display-name: "Skin Shuffle"
     channels:
       - "skinshuffle:*"
     keys:
-      - "key.skinshuffle.preset_1"
-      - "key.skinshuffle.preset_2"
-      - "key.category.skinshuffle.presets"
+      - "skinshuffle.button"
+      - "skinshuffle.carousel.new"
+      - "skinshuffle.config.title"
 
   ironchests:
     display-name: "Iron Chests: Restocked"
@@ -1836,16 +1510,16 @@ mods:
     keys:
       - "item.ironchests.key"
       - "item.ironchests.lock"
-      - "item.ironchests.key_ring"
+      - "item.ironchests.iron_dolly"
 
   building-wands:
     display-name: "Building Wands"
     channels:
       - "wands:*"
     keys:
-      - "key.wands.pin"
       - "key.wands.m_dec"
-      - "key.categories.wands"
+      - "key.wands.m_inc"
+      - "itemGroup.wands.wands_tab"
 
   inventory-management:
     display-name: "Inventory Management"
@@ -1853,8 +1527,8 @@ mods:
       - "inventorymanagement:*"
     keys:
       - "inventorymanagement.config.title"
-      - "inventorymanagement.modEnabled.label"
-      - "inventorymanagement.resourcepack.dark"
+      - "inventorymanagement.button.sort_player"
+      - "inventorymanagement.button.transfer_take"
 
   brewin-and-chewin:
     display-name: "Brewin' And Chewin'"
@@ -1862,8 +1536,8 @@ mods:
       - "brewinandchewin:*"
     keys:
       - "itemGroup.brewinandchewin"
-      - "brewinandchewin.jei.aging"
       - "brewinandchewin.container.keg"
+      - "brewinandchewin.jei.fermenting"
 
   bountiful-fares:
     display-name: "Bountiful Fares"
@@ -1871,62 +1545,44 @@ mods:
       - "bountifulfares:*"
     keys:
       - "itemgroup.bountiful_fares"
-      - "itemgroup.bountiful_fares_compatibility"
-      - "bountifulfares.milling"
+      - "item.bountifulfares.jar"
+      - "item.bountifulfares.leek"
 
   create-dreams-and-desires:
     display-name: "Create: Dreams & Desires"
     channels:
       - "create_dd:*"
     keys:
-      - "item.create_dd.sap"
       - "block.create_dd.sap"
       - "fluid.create_dd.sap"
-
-  inventory-sorting:
-    display-name: "Inventory Sorting"
-    channels:
-      - "inventorysorter:*"
-    keys:
-      - "key.category.inventorysorter.main"
-      - "modmenu.descriptionTranslation.inventorysorter"
-      - "inventorysorter.discord"
-
-  cobblemon-size-variations:
-    display-name: "Cobblemon Size Variations"
-    channels:
-      - "cobblemonsizevariation:*"
-    keys:
-      - "itemGroup.cobblemonsizevariation"
-      - "item.cobblemonsizevariation.huge_essence"
-      - "item.cobblemonsizevariation.tiny_essence"
+      - "item.create_dd.rubber"
 
   create-ore-excavation:
     display-name: "Create Ore Excavation"
     channels:
       - "createoreexcavation:*"
     keys:
-      - "itemGroup.createoreexcavation.create_ore_excavation"
       - "createoreexcavation.ponder.tag.drilling"
-      - "createoreexcavation.ponder.drilling.header"
+      - "createoreexcavation.ponder.find_ores.header"
+      - "createoreexcavation.ponder.find_ores.text_1"
 
   cobblesafari:
     display-name: "CobbleSafari"
     channels:
       - "cobblesafari:*"
     keys:
-      - "key.cobblesafari.open_rotom_phone"
-      - "key.cobblesafari.objectives_hud_toggle"
-      - "key.categories.cobblesafari"
+      - "itemGroup.cobblesafari.items"
+      - "cobblesafari.timer.reset"
+      - "cobblesafari.timer.expired"
 
   gardens-of-the-dead:
     display-name: "Gardens of the Dead"
     channels:
       - "gardens_of_the_dead:*"
     keys:
-      - "gardens_of_the_dead.creative_tab"
       - "block.gardens_of_the_dead.soul_spore"
       - "block.gardens_of_the_dead.whistlecane"
+      - "block.gardens_of_the_dead.blistercrown"
 
   dusty-decorations:
     display-name: "Dusty Decorations"
@@ -1951,9 +1607,9 @@ mods:
     channels:
       - "create_dragons_plus:*"
     keys:
-      - "itemGroup.create_dragons_plus.base"
       - "block.create_dragons_plus.red_dye"
       - "fluid.create_dragons_plus.red_dye"
+      - "block.create_dragons_plus.blue_dye"
 
   lets-do-furniture:
     display-name: "[Let's Do] Furniture"
@@ -1961,8 +1617,8 @@ mods:
       - "furniture:*"
     keys:
       - "itemGroup.furniture.furniture_tab"
-      - "furniture.configuration.Bin"
-      - "furniture.configuration.Misc"
+      - "block.furniture.bin"
+      - "item.furniture.pells"
 
   eldritch-end:
     display-name: "Eldritch End"
@@ -1970,8 +1626,8 @@ mods:
       - "eldritch_end:*"
     keys:
       - "itemGroup.eldritch_end"
-      - "item.eldritch_end.xal"
-      - "entity.eldritch_end.eye"
+      - "entity.eldritch_end.hastur"
+      - "item.eldritch_end.raw_etyr"
 
   lightmans-currency:
     display-name: "Lightman's Currency"
@@ -1979,17 +1635,15 @@ mods:
       - "lightmanscurrency:*"
     keys:
       - "itemGroup.lightmanscurrency.coins"
-      - "itemGroup.lightmanscurrency.trading"
       - "itemGroup.lightmanscurrency.machines"
+      - "itemGroup.lightmanscurrency.upgrades"
 
   effective:
     display-name: "Effective"
     channels:
       - "effective:*"
     keys:
-      - "effective.midnightconfig.title"
-      - "effective.subtitles.entity.parry"
-      - "effective.midnightconfig.cascades"
+      - "effective.subtitles.ambience.waterfall"
 
   create-goggles:
     display-name: "Create Goggles"
@@ -1997,8 +1651,8 @@ mods:
       - "creategoggles:*"
     keys:
       - "item.creategoggles.iron_backtank"
-      - "module.creategoggles.goggle_unit"
       - "block.creategoggles.iron_backtank"
+      - "item.creategoggles.golden_backtank"
 
   midnightcontrols:
     display-name: "MidnightControls"
@@ -2007,7 +1661,7 @@ mods:
     keys:
       - "key.midnightcontrols.ring"
       - "key.midnightcontrols.look_up"
-      - "key.category.midnightcontrols.keybinds"
+      - "midnightcontrols.button.a"
 
   structurify:
     display-name: "Structurify - Structure Control"
@@ -2018,39 +1672,14 @@ mods:
       - "gui.structurify.title"
       - "gui.structurify.label.no"
 
-  creeper-firework:
-    display-name: "Creeper Firework"
-    channels:
-      - "creeper_firework:*"
-    keys:
-      - "text.autoconfig.creeper_firework.title"
-      - "text.autoconfig.creeper_firework.option.CREEPER_EXPLODE_INTO_FIREWORK"
-      - "text.autoconfig.creeper_firework.option.CREEPER_FIREWORK_DESTROY_BLOCK"
-
-  polylib:
-    display-name: "PolyLib"
-    channels:
-      - "polylib:*"
-    keys:
-      - "energy_bar.polylib.rf"
-      - "fluid_tank.polylib.mb"
-      - "energy_bar.polylib.stored"
-
   cobblemon-integrations:
     display-name: "Cobblemon Integrations"
     channels:
       - "cobblemonintegrations:*"
     keys:
-      - "cobblemonintegrations.jei.evo_items.any"
-      - "cobblemonintegrations.jei.evo_items.none"
-      - "cobblemonintegrations.jade.tm_machine.idle"
-
-  pandalib:
-    display-name: "PandaLib"
-    channels:
-      - "pandalib:*"
-    keys:
-      - "modmenu.nameTranslation.pandalib"
+      - "config.jade.plugin_cobblemonintegrations.healer"
+      - "config.jade.plugin_cobblemonintegrations.berry_bush"
+      - "config.jade.plugin_cobblemonintegrations.pokemon_entity"
 
   custom-player-models:
     display-name: "Customizable Player Models"
@@ -2059,16 +1688,14 @@ mods:
     keys:
       - "key.cpm.qa_1"
       - "key.cpm.qa_2"
-      - "key.category.cpm.keys"
+      - "button.cpm.ok"
 
   applied-energistics-2-wireless-terminals:
     display-name: "Applied Energistics 2 Wireless Terminals"
     channels:
       - "ae2wtlib:*"
     keys:
-      - "key.ae2.ae2wtlib_magnet"
-      - "key.ae2.ae2wtlib_restock"
-      - "gui.ae2wtlib.on"
+      - "item.ae2wtlib.magnet_card"
 
   origins:
     display-name: "Origins"

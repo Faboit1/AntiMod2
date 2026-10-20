@@ -132,6 +132,15 @@ public final class ProbeBatch {
         return hidden;
     }
 
+    /** Spoof-check mods with at least one key that resolved: proven installed and answering. */
+    public List<String> getVerifiedSpoofMods() {
+        List<String> verified = new ArrayList<>();
+        for (String modId : spoofKeysProbed.keySet()) {
+            if (!spoofKeysResolved.getOrDefault(modId, Set.of()).isEmpty()) verified.add(modId);
+        }
+        return verified;
+    }
+
     public String getSpoofCheckChannel(String modId) {
         return spoofCheckChannels.get(modId);
     }

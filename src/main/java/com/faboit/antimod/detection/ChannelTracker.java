@@ -27,16 +27,30 @@ import java.util.logging.Level;
  * {@code minecraft:register}, in both the configuration and the play phase.
  *
  * Modded clients register the channels their mods listen on as soon as they
- * connect, which makes a registered channel hard evidence that the mod is
- * installed. The packets are only read, never altered or cancelled.
+ * connect, which makes a registered channel evidence that the mod is
+ * installed - but only once channels that did not come from the client are
+ * set aside. A proxy registers its own plugins' channels on the backend for
+ * every player (Velocity does this for e.g. voicechat-velocity's
+ * "voicechat:secret"), so those reach this server looking exactly like the
+ * client's. They are dropped from the spoof check by the configured
+ * ignore-channels patterns and by learning: a vanilla client never registers
+ * anything, so every channel a vanilla-brand connection carries was added on
+ * the way and is ignored for all players from then on.
+ *
+ * The packets are only read, never altered or cancelled.
  */
 public final class ChannelTracker extends PacketListenerAbstract {
 
     private static final String REGISTER = "minecraft:register";
     private static final String LEGACY_REGISTER = "REGISTER";
+    private static final String BRAND = "minecraft:brand";
+    private static final String LEGACY_BRAND = "MC|Brand";
 
     private final AntiMod plugin;
     private final Map<UUID, Set<String>> channels = new ConcurrentHashMap<>();
+    private final Map<UUID, String> brands = new ConcurrentHashMap<>();
+    /** Channels seen on vanilla-brand connections, so not registered by any client mod. */
+    private final Set<String> learnedProxyChannels = ConcurrentHashMap.newKeySet();
     /** Players whose client has sent a play-phase registration. */
     private final Set<UUID> playRegistered = ConcurrentHashMap.newKeySet();
 
@@ -78,16 +92,30 @@ public final class ChannelTracker extends PacketListenerAbstract {
                 channel = packet.getChannelName();
                 data = packet.getData();
             }
-            if (!REGISTER.equals(channel) && !LEGACY_REGISTER.equals(channel)) return;
             if (data == null || data.length == 0) return;
+            if (BRAND.equals(channel) || LEGACY_BRAND.equals(channel)) {
+                String brand = readBrand(data);
+                if (brand == null) return;
+                brands.put(uuid, brand);
+                if (isVanilla(brand)) learn(channels.getOrDefault(uuid, Set.of()));
+                return;
+            }
+            if (!REGISTER.equals(channel) && !LEGACY_REGISTER.equals(channel)) return;
 
             Set<String> set = channels.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
+            Set<String> added = new TreeSet<>();
             for (String c : new String(data, StandardCharsets.UTF_8).split("\0")) {
                 String trimmed = c.trim();
-                if (!trimmed.isEmpty()) set.add(trimmed);
+                if (!trimmed.isEmpty() && set.add(trimmed)) added.add(trimmed);
             }
+            if (isVanilla(brands.get(uuid))) learn(added);
 
-            if (play) {
+            // Only the client's own announcement may start the join probe. A
+            // proxy registers its channels on the backend first, and timing
+            // the probe off that would send it before the client's channels
+            // arrive.
+            boolean fromClient = added.stream().anyMatch(c -> whyIgnored(c) == null);
+            if (play && fromClient) {
                 playRegistered.add(uuid);
                 playRegistrationListener.accept(uuid);
             }
@@ -116,12 +144,70 @@ public final class ChannelTracker extends PacketListenerAbstract {
         return result;
     }
 
+    /**
+     * The channels the spoof check may treat as proof of an installed mod:
+     * {@link #getChannels} minus ignore-channels and learned proxy channels.
+     * Always empty for a vanilla-brand client, whose channels can only have
+     * been added by the proxy or server.
+     */
+    public Set<String> getSpoofCheckChannels(Player player) {
+        if (isVanillaBrand(player)) return Collections.emptySet();
+        Set<String> result = getChannels(player);
+        result.removeAll(learnedProxyChannels);
+        result.removeIf(plugin.getConfigManager()::isSpoofIgnoredChannel);
+        return result;
+    }
+
+    /** Whether the channel is excluded from the spoof check, and why (null if it is not). */
+    public String whyIgnored(String channel) {
+        if (plugin.getConfigManager().isSpoofIgnoredChannel(channel)) return "ignore-channels";
+        if (learnedProxyChannels.contains(channel)) return "added by proxy/server";
+        return null;
+    }
+
+    public boolean isVanillaBrand(Player player) {
+        String brand = brands.get(player.getUniqueId());
+        if (brand == null) brand = player.getClientBrandName();
+        return isVanilla(brand);
+    }
+
     public boolean hasPlayRegistration(UUID uuid) {
         return playRegistered.contains(uuid);
     }
 
     public void forget(UUID uuid) {
         channels.remove(uuid);
+        brands.remove(uuid);
         playRegistered.remove(uuid);
+    }
+
+    private void learn(Set<String> carried) {
+        if (!plugin.getConfigManager().isSpoofLearnProxyChannels()) return;
+        for (String c : carried) {
+            if (plugin.getConfigManager().isSpoofIgnoredChannel(c)) continue;
+            if (learnedProxyChannels.add(c)) {
+                plugin.getLogger().info("Spoof check: ignoring channel '" + c + "' - a vanilla client carried it, "
+                        + "so the proxy or server registers it for every player.");
+            }
+        }
+    }
+
+    private static boolean isVanilla(String brand) {
+        return brand != null && brand.trim().equalsIgnoreCase("vanilla");
+    }
+
+    /** A brand payload is one VarInt-length-prefixed UTF-8 string. */
+    private static String readBrand(byte[] data) {
+        int length = 0, shift = 0, i = 0;
+        while (i < data.length && i < 5) {
+            byte b = data[i++];
+            length |= (b & 0x7F) << shift;
+            if ((b & 0x80) == 0) {
+                if (length < 0 || i + length > data.length) return null;
+                return new String(data, i, length, StandardCharsets.UTF_8);
+            }
+            shift += 7;
+        }
+        return null;
     }
 }

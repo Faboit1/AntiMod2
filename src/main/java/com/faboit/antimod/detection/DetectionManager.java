@@ -6,6 +6,7 @@ import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.config.ModConfig;
 import com.faboit.antimod.config.SpoofModConfig;
+import com.faboit.antimod.util.ClientVersionUtil;
 import com.faboit.antimod.util.FloodgateUtil;
 import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.entity.Player;
@@ -47,6 +48,7 @@ public final class DetectionManager {
     private final SignPacketSender packetSender;
     private final ActionExecutor actionExecutor;
     private final ChannelTracker channelTracker;
+    private final SpoofEntryMonitor entryMonitor;
 
     /** The in-flight sweep per player, if any. */
     private final Map<UUID, ProbeBatch> activeBatches = new ConcurrentHashMap<>();
@@ -58,6 +60,7 @@ public final class DetectionManager {
         this.plugin = plugin;
         this.actionExecutor = actionExecutor;
         this.channelTracker = channelTracker;
+        this.entryMonitor = new SpoofEntryMonitor(plugin);
         this.packetSender = new SignPacketSender(plugin);
         channelTracker.setPlayRegistrationListener(this::onPlayRegistration);
     }
@@ -79,10 +82,8 @@ public final class DetectionManager {
     public void scheduleJoinProbe(Player player) {
         ConfigManager cfg = plugin.getConfigManager();
         int joinDelay = cfg.getJoinDelayTicks();
-        String brand = player.getClientBrandName();
-        boolean vanillaBrand = brand != null && brand.equalsIgnoreCase("vanilla");
         if (!cfg.isSpoofEnabled() || !cfg.isSpoofWaitForChannels() || cfg.getSpoofMods().isEmpty()
-                || vanillaBrand) {
+                || channelTracker.isVanillaBrand(player)) {
             runJoinProbeLater(player, null, joinDelay);
             return;
         }
@@ -253,7 +254,9 @@ public final class DetectionManager {
      */
     private void addSpoofCheckProbes(Player player, ConfigManager cfg, ProbeBatch batch,
                                      List<PendingProbe> probes) {
-        Set<String> registered = channelTracker.getChannels(player);
+        // Bedrock players run no Java mods; any channel on them came from the proxy.
+        if (FloodgateUtil.isFloodgatePlayer(player)) return;
+        Set<String> registered = channelTracker.getSpoofCheckChannels(player);
         if (registered.isEmpty()) return;
         int budget = cfg.getSpoofMaxModsPerSweep();
         for (SpoofModConfig mod : cfg.getSpoofMods().values()) {
@@ -282,28 +285,45 @@ public final class DetectionManager {
     }
 
     /**
-     * Flags the player when a channel-confirmed mod answered none of its keys,
-     * or when the client echoed a probed key back verbatim (a vanilla client
-     * always answers with the supplied fallback). Runs at most once per sweep.
+     * Flags the player when the channel-confirmed mods that answered none of
+     * their keys outnumber the ones that resolved theirs (and there are at
+     * least {@code min-hidden-mods} of them), or when the client echoed a
+     * probed key back verbatim. A client hiding translations hides them for
+     * every mod, so when most mods verify, the few that did not point at
+     * those entries rather than the player; an entry that fails for a player
+     * who verified everything else is reported to the {@link SpoofEntryMonitor}.
+     *
+     * The echo only counts for Java clients on 1.19.4+: older clients ignore
+     * the fallback and show the raw key as plain vanilla behaviour. Runs at
+     * most once per sweep.
      */
     private void evaluateSpoofCheck(Player player, ProbeBatch batch) {
         ConfigManager cfg = plugin.getConfigManager();
         if (!cfg.isSpoofEnabled() || player == null) return;
-        boolean echoed = cfg.isSpoofFlagRawKeyEcho() && !batch.getRawEchoKeys().isEmpty();
+        boolean echoed = cfg.isSpoofFlagRawKeyEcho() && !batch.getRawEchoKeys().isEmpty()
+                && !FloodgateUtil.isFloodgatePlayer(player)
+                && ClientVersionUtil.supportsTranslationFallback(player);
         if (!batch.hasSpoofChecks() && !echoed) return;
         if (!batch.claimSpoofEvaluation()) return;
 
         List<String> hidden = batch.getHiddenSpoofMods();
-        boolean enoughHidden = hidden.size() >= cfg.getSpoofMinHiddenMods();
+        List<String> verified = batch.getVerifiedSpoofMods();
+        if (hidden.size() == 1 && !verified.isEmpty()) {
+            entryMonitor.recordMiss(hidden.get(0), player.getUniqueId());
+        }
+        boolean enoughHidden = hidden.size() >= cfg.getSpoofMinHiddenMods() && hidden.size() > verified.size();
         if (!enoughHidden && !echoed) return;
 
         List<String> evidence = new ArrayList<>();
         if (enoughHidden) {
+            List<String> names = new ArrayList<>();
             for (String id : hidden) {
                 SpoofModConfig mod = cfg.getSpoofMods().get(id);
                 String name = mod == null ? id : mod.getDisplayName();
-                evidence.add(name + " [" + batch.getSpoofCheckChannel(id) + "]");
+                names.add(name + " [" + batch.getSpoofCheckChannel(id) + "]");
             }
+            evidence.add("hid " + hidden.size() + " of " + (hidden.size() + verified.size())
+                    + " channel-confirmed mods: " + String.join(", ", names));
         }
         if (echoed) {
             evidence.add("raw key echo: " + String.join(", ", batch.getRawEchoKeys()));

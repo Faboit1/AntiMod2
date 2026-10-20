@@ -86,18 +86,25 @@ public final class SignResponseListener extends PacketListenerAbstract {
                     String probedKey = session.getKeyAt(i);
                     String returned = lines[i];
 
-                    boolean untranslated = returned == null || returned.isEmpty()
-                            || returned.equals(session.getFallbackMarker());
-                    // A vanilla client always answers with the fallback we
-                    // supplied, never with the key itself.
+                    boolean fallback = returned == null || returned.equals(session.getFallbackMarker());
+                    // The key itself is never proof the mod is installed:
+                    // clients before 1.19.4 ignore the fallback and show the
+                    // raw key for any key they don't know, so that is the
+                    // vanilla answer there. On newer clients it is a sign of
+                    // tampering, which the spoof check weighs separately.
                     boolean rawEcho = probedKey.equals(returned);
 
                     if (session.isSpoofCheckLine(i)) {
-                        batch.recordSpoofAnswer(modId, probedKey, !untranslated && !rawEcho, rawEcho);
+                        // An empty answer is a key that resolved to an empty
+                        // translation, so the mod is there.
+                        batch.recordSpoofAnswer(modId, probedKey, !fallback && !rawEcho, rawEcho);
                         continue;
                     }
-                    if (rawEcho) batch.recordRawEcho(probedKey);
-                    if (untranslated) continue; // fallback — mod not present
+                    if (rawEcho) {
+                        batch.recordRawEcho(probedKey);
+                        continue;
+                    }
+                    if (fallback || returned.isEmpty()) continue; // mod not present
 
                     answered.merge(modId, probedKey, (a, b) -> a + "," + b);
                 }

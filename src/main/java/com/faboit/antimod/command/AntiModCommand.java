@@ -4,6 +4,7 @@ import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.config.ModConfig;
 import com.faboit.antimod.config.SpoofModConfig;
+import com.faboit.antimod.detection.ChannelTracker;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.violation.ViolationManager;
 import net.kyori.adventure.text.Component;
@@ -179,17 +180,27 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
             return;
         }
-        Set<String> registered = detection.getChannelTracker().getChannels(target);
+        ChannelTracker tracker = detection.getChannelTracker();
+        Set<String> registered = tracker.getChannels(target);
         String brand = target.getClientBrandName();
         sender.sendMessage(Component.text("[AntiMod] " + target.getName() + " - brand: "
                 + (brand == null ? "unknown" : brand) + ", " + registered.size() + " channels:", NamedTextColor.YELLOW));
-        if (!registered.isEmpty()) {
-            sender.sendMessage(Component.text("  " + String.join(", ", registered), NamedTextColor.GRAY));
+        List<String> shown = new ArrayList<>();
+        for (String channel : registered) {
+            String why = tracker.whyIgnored(channel);
+            shown.add(why == null ? channel : channel + " [ignored: " + why + "]");
+        }
+        if (!shown.isEmpty()) {
+            sender.sendMessage(Component.text("  " + String.join(", ", shown), NamedTextColor.GRAY));
+        }
+        if (tracker.isVanillaBrand(target)) {
+            sender.sendMessage(Component.text("  Vanilla brand: channels are not used as evidence.", NamedTextColor.GRAY));
         }
 
+        Set<String> evidence = tracker.getSpoofCheckChannels(target);
         List<String> confirmed = new ArrayList<>();
         for (SpoofModConfig mod : plugin.getConfigManager().getSpoofMods().values()) {
-            String channel = mod.findChannel(registered);
+            String channel = mod.findChannel(evidence);
             if (channel != null) confirmed.add(mod.getDisplayName() + " (" + channel + ")");
         }
         sender.sendMessage(Component.text("  Spoof-check mods confirmed by channel: "

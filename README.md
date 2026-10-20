@@ -85,7 +85,7 @@ Some client mods stop translation keys from resolving on signs, so every probe c
 
 A client that echoes a probed key back verbatim is flagged too. A vanilla client always answers with the fallback we supply, never the raw key.
 
-The channel → key list lives in `plugins/AntiMod/spoof-mods.yml`. It ships with 230 entries generated from the Fabric builds of the most downloaded mods on Modrinth, and you can add your own:
+The channel → key list lives in `plugins/AntiMod/spoof-mods.yml`. It ships with entries generated from the most downloaded mods on Modrinth, and you can add your own:
 
 ```yaml
 mods:
@@ -99,7 +99,19 @@ mods:
       - "key.category.voicechat.voicechat"
 ```
 
-`/antimod channels <player>` shows what a client registered and which entries those channels match, which makes it easy to add a new mod. Settings and actions are under `spoof-detection` in `config.yml`; the default action only alerts staff.
+A client that hides translations hides them for every mod. So a player is only flagged when the channel-confirmed mods that hid all their keys **outnumber** the ones that resolved theirs. If most mods verify, the player is fine even if a few didn't. By default every detection kicks the player and alerts staff.
+
+When an entry fails for **5 different players** who verified every other mod in the same sweep, the entry is the problem, not the players. AntiMod comments it out in `spoof-mods.yml` with a note explaining why and reloads the list. The tallies live in `spoof-mod-misses.yml`, and `auto-disable-after` sets the count.
+
+`/antimod channels <player>` shows what a client registered and which entries those channels match, which makes it easy to add a new mod. Settings and actions are under `spoof-detection` in `config.yml`.
+
+### False-positive safeguards
+
+- **Proxy channels:** Velocity registers its own plugins' channels on the backend for every player. For example, voicechat-velocity registers `voicechat:secret` and `voicechat:request_secret`, which would make vanilla players look like they run Simple Voice Chat. Those channels are excluded by `ignore-channels`. Any channel a vanilla-brand client carries is learned and ignored automatically (`learn-proxy-channels`). Vanilla-brand and Bedrock (Floodgate) players are never spoof-checked.
+- **Old clients:** before 1.19.4, clients ignore the translation `fallback` and show the raw key for unknown keys. A raw-key answer is therefore never counted as proof of any mod, banned or spoof-check. It only counts as tampering for Java 1.19.4+ clients (version read through ViaVersion when present).
+- **Majority rule:** hidden mods must outnumber verified ones. On top of that, by default `min-hidden-mods: 2`, so one odd mod build or one stray channel can't flag anyone.
+- **Self-cleaning list:** entries that keep failing for players who verify everything else are disabled automatically (see above).
+- **Keys that exist in every build:** each key in `spoof-mods.yml` is present in **every** sampled build of its mod (Fabric, Quilt, Forge and NeoForge, MC 1.16.5+, newest and oldest build per MC release). It isn't a vanilla key, no other mod ships it, and its value is non-empty and safe in every language.
 
 **Limitation:** with their default settings, OpSec (AUTO whitelist) and ExploitPreventer both deliberately let the keys of channel-registering mods resolve. A default install therefore answers consistently and is **not** flagged. The check catches stricter setups, where keys are blocked for a mod whose channels are still visible.
 

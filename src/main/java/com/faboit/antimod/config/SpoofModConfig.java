@@ -67,7 +67,7 @@ public final class SpoofModConfig {
     }
 
     /** Glob to regex: {@code *} matches anything, everything else is literal. */
-    private static Pattern compileGlob(String glob) {
+    static Pattern compileGlob(String glob) {
         StringBuilder regex = new StringBuilder();
         for (String part : glob.toLowerCase(Locale.ROOT).split("\\*", -1)) {
             if (regex.length() > 0) regex.append(".*");
