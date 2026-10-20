@@ -75,6 +75,34 @@ mods:
           - "litebans:ban {player} 14d Cheating ({mod}) - Repeated warnings"
 ```
 
+## Spoof detection (OpSec, ExploitPreventer and similar)
+
+Some client mods stop translation keys from resolving on signs, so every probe comes back as the fallback and banned mods go unseen. AntiMod cross-checks those answers against the client's **plugin channels**:
+
+1. On join, a modded client announces the channels its mods listen on (`minecraft:register`). A channel like `voicechat:secret` proves Simple Voice Chat is installed.
+2. The join sweep waits for that announcement, then probes the banned mods' keys **plus** the keys of every mod whose channel was seen.
+3. A real install always resolves its own keys. If the channel is there but every key comes back as the fallback, the client is hiding translations and is flagged as `translation-spoofer`.
+
+A client that echoes a probed key back verbatim is flagged too. A vanilla client always answers with the fallback we supply, never the raw key.
+
+The channel → key list lives in `plugins/AntiMod/spoof-mods.yml`. It ships with 230 entries generated from the Fabric builds of the most downloaded mods on Modrinth, and you can add your own:
+
+```yaml
+mods:
+  simple-voice-chat:
+    display-name: "Simple Voice Chat"
+    channels:
+      - "voicechat:*"          # * matches anything
+    keys:                      # any ONE resolving clears the mod
+      - "key.voice_chat"
+      - "key.voice_chat_group"
+      - "key.category.voicechat.voicechat"
+```
+
+`/antimod channels <player>` shows what a client registered and which entries those channels match, which makes it easy to add a new mod. Settings and actions are under `spoof-detection` in `config.yml`; the default action only alerts staff.
+
+**Limitation:** with their default settings, OpSec (AUTO whitelist) and ExploitPreventer both deliberately let the keys of channel-registering mods resolve. A default install therefore answers consistently and is **not** flagged. The check catches stricter setups, where keys are blocked for a mod whose channels are still visible.
+
 ### Placeholders
 
 Available in all `commands`, `broadcast`, and `message` fields:
@@ -99,6 +127,7 @@ MiniMessage-style `<player>`, `<mod>`, etc. also work in the `staff-message` fie
 | `/antimod violations <player>`      | Show a player's per-mod violation counts |
 | `/antimod clear <player> [mod]`     | Clear violations (all mods, or one)      |
 | `/antimod info`                     | List configured mods                     |
+| `/antimod channels <player>`        | Show a player's registered plugin channels |
 
 Alias: `/am`
 

@@ -3,6 +3,7 @@ package com.faboit.antimod;
 import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.command.AntiModCommand;
 import com.faboit.antimod.config.ConfigManager;
+import com.faboit.antimod.detection.ChannelTracker;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.detection.SignResponseListener;
 import com.faboit.antimod.listener.PlayerJoinListener;
@@ -49,9 +50,11 @@ public final class AntiMod extends JavaPlugin {
 
         // Action executor and detection pipeline
         ActionExecutor actionExecutor = new ActionExecutor(this, violationManager);
-        this.detectionManager = new DetectionManager(this, actionExecutor);
+        ChannelTracker channelTracker = new ChannelTracker(this);
+        this.detectionManager = new DetectionManager(this, actionExecutor, channelTracker);
 
-        // PacketEvents packet listener for UPDATE_SIGN responses
+        // PacketEvents listeners: channel registrations and UPDATE_SIGN responses
+        channelTracker.register();
         new SignResponseListener(this, detectionManager).register();
 
         // Event listener for join/quit
@@ -79,7 +82,11 @@ public final class AntiMod extends JavaPlugin {
         }
 
         String foliaStatus = FoliaScheduler.isFoliaAvailable() ? " (Folia-compatible)" : "";
-        getLogger().info("AntiMod enabled. Monitoring " + configManager.getMods().size() + " mods." + foliaStatus);
+        String spoofStatus = configManager.isSpoofEnabled()
+                ? " Spoof check: " + configManager.getSpoofMods().size() + " channel-confirmed mods."
+                : "";
+        getLogger().info("AntiMod enabled. Monitoring " + configManager.getMods().size() + " mods."
+                + spoofStatus + foliaStatus);
     }
 
     @Override

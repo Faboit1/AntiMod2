@@ -2,7 +2,6 @@ package com.faboit.antimod.listener;
 
 import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.detection.DetectionManager;
-import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -23,18 +22,9 @@ public final class PlayerJoinListener implements Listener {
         if (!plugin.getConfigManager().isOnJoinEnabled()) return;
         if (event.getPlayer().hasPermission("antimod.bypass")) return;
 
-        Runnable probe = () -> {
-            if (event.getPlayer().isOnline()) {
-                manager.runFullDetection(event.getPlayer());
-            }
-        };
-
-        int delay = plugin.getConfigManager().getJoinDelayTicks();
-        if (delay <= 0) {
-            FoliaScheduler.runTask(plugin, event.getPlayer(), probe);
-        } else {
-            FoliaScheduler.runTaskLater(plugin, event.getPlayer(), probe, delay);
-        }
+        // The manager decides when: after join-delay-ticks, or - with the spoof
+        // check on - once the client has announced its plugin channels.
+        manager.scheduleJoinProbe(event.getPlayer());
     }
 
     @EventHandler

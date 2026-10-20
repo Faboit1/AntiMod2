@@ -2,11 +2,14 @@ package com.faboit.antimod.detection;
 
 import com.github.retrooper.packetevents.util.Vector3i;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * One sweep of phantom-sign probes for a single player.
@@ -24,6 +27,16 @@ public final class ProbeBatch {
 
     /** Mods already reported during this sweep, so each one fires its action once. */
     private final Set<String> flaggedMods = ConcurrentHashMap.newKeySet();
+
+    // ---- spoof check ----
+    /** Spoof-check mod id -> the registered channel that proved it is installed. */
+    private final Map<String, String> spoofCheckChannels = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> spoofKeysProbed = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> spoofKeysAnswered = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> spoofKeysResolved = new ConcurrentHashMap<>();
+    /** Keys the client echoed back verbatim even though a fallback was supplied. */
+    private final Set<String> rawEchoKeys = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean spoofEvaluated = new AtomicBoolean();
 
     public ProbeBatch(UUID playerUuid) {
         this.playerUuid = playerUuid;
@@ -67,5 +80,68 @@ public final class ProbeBatch {
 
     public boolean isComplete() {
         return sessions.isEmpty();
+    }
+
+    // ------------------------------------------------------------------
+    //   Spoof check
+    // ------------------------------------------------------------------
+
+    /** Registers a spoof-check mod whose channel was seen, with the keys probed for it. */
+    public void expectSpoofCheck(String modId, String channel, List<String> keys) {
+        spoofCheckChannels.put(modId, channel);
+        spoofKeysProbed.computeIfAbsent(modId, k -> ConcurrentHashMap.newKeySet()).addAll(keys);
+    }
+
+    public boolean hasSpoofChecks() {
+        return !spoofCheckChannels.isEmpty();
+    }
+
+    /**
+     * Records the client's answer for one spoof-check key.
+     *
+     * @param resolved the client sent back a real translation
+     * @param rawEcho  the client sent back the key itself despite the fallback
+     */
+    public void recordSpoofAnswer(String modId, String key, boolean resolved, boolean rawEcho) {
+        spoofKeysAnswered.computeIfAbsent(modId, k -> ConcurrentHashMap.newKeySet()).add(key);
+        if (resolved) {
+            spoofKeysResolved.computeIfAbsent(modId, k -> ConcurrentHashMap.newKeySet()).add(key);
+        }
+        if (rawEcho) rawEchoKeys.add(key);
+    }
+
+    /** Records a banned-mod key the client echoed back verbatim. */
+    public void recordRawEcho(String key) {
+        rawEchoKeys.add(key);
+    }
+
+    /**
+     * Spoof-check mods whose channel was registered but whose keys all came
+     * back untranslated. A mod with any key still unanswered (its sign never
+     * came back) is inconclusive and left out.
+     */
+    public List<String> getHiddenSpoofMods() {
+        List<String> hidden = new ArrayList<>();
+        for (Map.Entry<String, Set<String>> e : spoofKeysProbed.entrySet()) {
+            Set<String> answered = spoofKeysAnswered.getOrDefault(e.getKey(), Set.of());
+            if (!answered.containsAll(e.getValue())) continue;
+            if (spoofKeysResolved.getOrDefault(e.getKey(), Set.of()).isEmpty()) {
+                hidden.add(e.getKey());
+            }
+        }
+        return hidden;
+    }
+
+    public String getSpoofCheckChannel(String modId) {
+        return spoofCheckChannels.get(modId);
+    }
+
+    public Set<String> getRawEchoKeys() {
+        return rawEchoKeys;
+    }
+
+    /** True exactly once per sweep, so the spoof verdict is never reached twice. */
+    public boolean claimSpoofEvaluation() {
+        return spoofEvaluated.compareAndSet(false, true);
     }
 }

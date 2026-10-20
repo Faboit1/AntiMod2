@@ -1,7 +1,9 @@
 package com.faboit.antimod.command;
 
 import com.faboit.antimod.AntiMod;
+import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.config.ModConfig;
+import com.faboit.antimod.config.SpoofModConfig;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.violation.ViolationManager;
 import net.kyori.adventure.text.Component;
@@ -19,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class AntiModCommand implements CommandExecutor, TabCompleter {
@@ -51,6 +54,7 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             case "violations" -> showViolations(sender, args);
             case "clear"  -> clear(sender, args);
             case "info"   -> info(sender);
+            case "channels" -> channels(sender, args);
             default -> sendHelp(sender);
         }
         return true;
@@ -68,13 +72,17 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
                 .append(Component.text(" - clear violations", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/antimod info", NamedTextColor.AQUA)
                 .append(Component.text(" - list configured mods", NamedTextColor.GRAY)));
+        sender.sendMessage(Component.text("/antimod channels <player>", NamedTextColor.AQUA)
+                .append(Component.text(" - show a player's registered plugin channels", NamedTextColor.GRAY)));
     }
 
     private void reload(CommandSender sender) {
         try {
             plugin.getConfigManager().load();
             sender.sendMessage(Component.text("[AntiMod] Configuration reloaded (" +
-                    plugin.getConfigManager().getMods().size() + " mods).", NamedTextColor.GREEN));
+                    plugin.getConfigManager().getMods().size() + " mods, " +
+                    plugin.getConfigManager().getSpoofMods().size() + " spoof-check mods).",
+                    NamedTextColor.GREEN));
         } catch (Exception e) {
             sender.sendMessage(Component.text("[AntiMod] Reload failed: " + e.getMessage(), NamedTextColor.RED));
         }
@@ -153,6 +161,39 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
                     state.replace("&a", "").replace("&c", ""))
             , mod.isEnabled() ? NamedTextColor.GREEN : NamedTextColor.RED));
         }
+        ConfigManager cfg = plugin.getConfigManager();
+        long enabledSpoof = cfg.getSpoofMods().values().stream().filter(SpoofModConfig::isEnabled).count();
+        sender.sendMessage(Component.text(String.format("[AntiMod] Spoof check: %s - %d/%d channel-confirmed mods enabled (%s)",
+                        cfg.isSpoofEnabled() ? "on" : "off", enabledSpoof, cfg.getSpoofMods().size(),
+                        ConfigManager.SPOOF_MODS_FILE),
+                cfg.isSpoofEnabled() ? NamedTextColor.GREEN : NamedTextColor.RED));
+    }
+
+    private void channels(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(Component.text("Usage: /antimod channels <player>", NamedTextColor.RED));
+            return;
+        }
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            sender.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
+            return;
+        }
+        Set<String> registered = detection.getChannelTracker().getChannels(target);
+        String brand = target.getClientBrandName();
+        sender.sendMessage(Component.text("[AntiMod] " + target.getName() + " - brand: "
+                + (brand == null ? "unknown" : brand) + ", " + registered.size() + " channels:", NamedTextColor.YELLOW));
+        if (!registered.isEmpty()) {
+            sender.sendMessage(Component.text("  " + String.join(", ", registered), NamedTextColor.GRAY));
+        }
+
+        List<String> confirmed = new ArrayList<>();
+        for (SpoofModConfig mod : plugin.getConfigManager().getSpoofMods().values()) {
+            String channel = mod.findChannel(registered);
+            if (channel != null) confirmed.add(mod.getDisplayName() + " (" + channel + ")");
+        }
+        sender.sendMessage(Component.text("  Spoof-check mods confirmed by channel: "
+                + (confirmed.isEmpty() ? "none" : String.join(", ", confirmed)), NamedTextColor.AQUA));
     }
 
     private UUID resolveUuid(String name) {
@@ -167,7 +208,7 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
                                       @NotNull String alias, @NotNull String[] args) {
         if (!sender.hasPermission("antimod.admin")) return List.of();
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("reload", "check", "violations", "clear", "info");
+            List<String> subs = Arrays.asList("reload", "check", "violations", "clear", "info", "channels");
             return filter(subs, args[0]);
         }
         if (args.length == 2 && !args[0].equalsIgnoreCase("reload") && !args[0].equalsIgnoreCase("info")) {
@@ -176,7 +217,9 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             return filter(names, args[1]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("clear")) {
-            return filter(new ArrayList<>(plugin.getConfigManager().getMods().keySet()), args[2]);
+            List<String> ids = new ArrayList<>(plugin.getConfigManager().getMods().keySet());
+            ids.add(plugin.getConfigManager().getSpoofDetector().getId());
+            return filter(ids, args[2]);
         }
         return List.of();
     }
