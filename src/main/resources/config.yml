@@ -205,6 +205,28 @@ spoof-detection:
       staff-only: true
 
 # =====================================================================
+# Mod scan (/antimod mods <player>)
+# =====================================================================
+# Probes a player for every mod in plugins/AntiMod/mod-catalog.yml (thousands
+# of popular mods) and the banned mods below, then lists what was found:
+#   - mods detected by their translation keys
+#   - mods the player's plugin channels say they have, marked "verified" if
+#     their keys resolved or "keys hidden" if every key came back untranslated
+# A scan only reports. It never records violations or runs actions.
+mod-scan:
+  # Translation keys packed into each sign (1-4). 4 = fewest signs.
+  keys-per-sign: 4
+
+  # Signs sent per tick. The client answers every sign, and ViaVersion kicks
+  # clients that send more than 800 packets a second (warning from 120), as
+  # can Paper's packet limiter. 5 = about 100 answers a second, so a full
+  # scan of a few thousand mods takes around 10 seconds. Raise with care.
+  signs-per-tick: 5
+
+  # How long to wait for answers after the last sign went out (ticks).
+  response-timeout-ticks: 100
+
+# =====================================================================
 # Banned mods & actions
 # =====================================================================
 # Each entry under `mods` is one mod to detect.

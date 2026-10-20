@@ -1,6 +1,7 @@
 package com.faboit.antimod.detection;
 
 import com.faboit.antimod.AntiMod;
+import com.faboit.antimod.detection.DetectionSession.ProbeKind;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
@@ -94,7 +95,14 @@ public final class SignResponseListener extends PacketListenerAbstract {
                     // tampering, which the spoof check weighs separately.
                     boolean rawEcho = probedKey.equals(returned);
 
-                    if (session.isSpoofCheckLine(i)) {
+                    ProbeKind kind = session.getKindAt(i);
+                    if (kind == ProbeKind.CATALOG) {
+                        // Only reported: a real, non-empty translation counts.
+                        batch.recordCatalogAnswer(modId, probedKey,
+                                !fallback && !rawEcho && !returned.isEmpty());
+                        continue;
+                    }
+                    if (kind == ProbeKind.SPOOF_CHECK) {
                         // An empty answer is a key that resolved to an empty
                         // translation, so the mod is there.
                         batch.recordSpoofAnswer(modId, probedKey, !fallback && !rawEcho, rawEcho);

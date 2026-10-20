@@ -38,6 +38,12 @@ public final class ProbeBatch {
     private final Set<String> rawEchoKeys = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean spoofEvaluated = new AtomicBoolean();
 
+    // ---- mod scan (/antimod mods) ----
+    private volatile ModScan scan;
+    private final Map<String, Set<String>> catalogProbed = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> catalogAnswered = new ConcurrentHashMap<>();
+    private final Set<String> catalogResolved = ConcurrentHashMap.newKeySet();
+
     public ProbeBatch(UUID playerUuid) {
         this.playerUuid = playerUuid;
     }
@@ -152,5 +158,34 @@ public final class ProbeBatch {
     /** True exactly once per sweep, so the spoof verdict is never reached twice. */
     public boolean claimSpoofEvaluation() {
         return spoofEvaluated.compareAndSet(false, true);
+    }
+
+    // ------------------------------------------------------------------
+    //   Mod scan
+    // ------------------------------------------------------------------
+
+    public ModScan getScan() { return scan; }
+
+    public void setScan(ModScan scan) { this.scan = scan; }
+
+    public void expectCatalog(String owner, List<String> keys) {
+        catalogProbed.computeIfAbsent(owner, k -> ConcurrentHashMap.newKeySet()).addAll(keys);
+    }
+
+    public void recordCatalogAnswer(String owner, String key, boolean resolved) {
+        catalogAnswered.computeIfAbsent(owner, k -> ConcurrentHashMap.newKeySet()).add(key);
+        if (resolved) catalogResolved.add(owner);
+    }
+
+    /** Catalog entries with at least one key that resolved. */
+    public Set<String> getCatalogResolved() { return catalogResolved; }
+
+    public boolean wasCatalogProbed(String owner) { return catalogProbed.containsKey(owner); }
+
+    /** Probed, every key answered, none resolved. */
+    public boolean isCatalogHidden(String owner) {
+        Set<String> probed = catalogProbed.get(owner);
+        return probed != null && !catalogResolved.contains(owner)
+                && catalogAnswered.getOrDefault(owner, Set.of()).containsAll(probed);
     }
 }

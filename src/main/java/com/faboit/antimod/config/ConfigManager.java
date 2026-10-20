@@ -63,6 +63,12 @@ public final class ConfigManager {
     /** Swapped whole on reload; read from packet threads. */
     private volatile Map<String, SpoofModConfig> spoofMods = Collections.emptyMap();
 
+    // Mod scan (/antimod mods)
+    private volatile ModCatalog catalog = ModCatalog.empty();
+    private int scanKeysPerSign;
+    private int scanSignsPerTick;
+    private int scanResponseTimeoutTicks;
+
     public ConfigManager(AntiMod plugin) {
         this.plugin = plugin;
     }
@@ -140,6 +146,16 @@ public final class ConfigManager {
                 Collections.emptyList(),
                 spoofSection == null ? Collections.emptyList() : parseActions(spoofSection));
         spoofMods = loadSpoofMods();
+
+        // --- mod scan ---
+        scanKeysPerSign = Math.max(1, Math.min(4, cfg.getInt("mod-scan.keys-per-sign", 4)));
+        scanSignsPerTick = Math.max(1, cfg.getInt("mod-scan.signs-per-tick", 5));
+        scanResponseTimeoutTicks = Math.max(1, cfg.getInt("mod-scan.response-timeout-ticks", 100));
+        File catalogFile = new File(plugin.getDataFolder(), ModCatalog.FILE);
+        if (!catalogFile.exists()) {
+            plugin.saveResource(ModCatalog.FILE, false);
+        }
+        catalog = ModCatalog.load(catalogFile);
     }
 
     private static List<ActionConfig> parseActions(ConfigurationSection section) {
@@ -279,5 +295,9 @@ public final class ConfigManager {
         return false;
     }
     public ModConfig getSpoofDetector() { return spoofDetector; }
+    public ModCatalog getCatalog() { return catalog; }
+    public int getScanKeysPerSign() { return scanKeysPerSign; }
+    public int getScanSignsPerTick() { return scanSignsPerTick; }
+    public int getScanResponseTimeoutTicks() { return scanResponseTimeoutTicks; }
     public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }
 }

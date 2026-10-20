@@ -56,6 +56,7 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             case "clear"  -> clear(sender, args);
             case "info"   -> info(sender);
             case "channels" -> channels(sender, args);
+            case "mods"   -> mods(sender, args);
             default -> sendHelp(sender);
         }
         return true;
@@ -75,6 +76,8 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
                 .append(Component.text(" - list configured mods", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/antimod channels <player>", NamedTextColor.AQUA)
                 .append(Component.text(" - show a player's registered plugin channels", NamedTextColor.GRAY)));
+        sender.sendMessage(Component.text("/antimod mods <player>", NamedTextColor.AQUA)
+                .append(Component.text(" - scan a player for known mods (report only)", NamedTextColor.GRAY)));
     }
 
     private void reload(CommandSender sender) {
@@ -170,6 +173,19 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
                 cfg.isSpoofEnabled() ? NamedTextColor.GREEN : NamedTextColor.RED));
     }
 
+    private void mods(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(Component.text("Usage: /antimod mods <player>", NamedTextColor.RED));
+            return;
+        }
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            sender.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
+            return;
+        }
+        detection.runModScan(target, sender);
+    }
+
     private void channels(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage(Component.text("Usage: /antimod channels <player>", NamedTextColor.RED));
@@ -219,7 +235,7 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
                                       @NotNull String alias, @NotNull String[] args) {
         if (!sender.hasPermission("antimod.admin")) return List.of();
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("reload", "check", "violations", "clear", "info", "channels");
+            List<String> subs = Arrays.asList("reload", "check", "violations", "clear", "info", "channels", "mods");
             return filter(subs, args[0]);
         }
         if (args.length == 2 && !args[0].equalsIgnoreCase("reload") && !args[0].equalsIgnoreCase("info")) {

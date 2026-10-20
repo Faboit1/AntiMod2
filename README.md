@@ -115,6 +115,16 @@ When an entry fails for **5 different players** who verified every other mod in 
 
 **Limitation:** with their default settings, OpSec (AUTO whitelist) and ExploitPreventer both deliberately let the keys of channel-registering mods resolve. A default install therefore answers consistently and is **not** flagged. The check catches stricter setups, where keys are blocked for a mod whose channels are still visible.
 
+## Mod scan (`/antimod mods <player>`)
+
+`/antimod mods <player>` probes a player for every mod in `plugins/AntiMod/mod-catalog.yml`, plus the banned mods, and lists:
+
+- **Detected by translation keys:** mods whose key resolved on the client.
+- **Expected from channels:** the mods the player's plugin channels say they have, marked *verified* if their keys resolved, *keys hidden* if every key came back untranslated, *not in catalog* if there's no key for them, or *no answer*.
+- **Channels from unlisted mods:** channel namespaces that no catalog entry accounts for.
+
+The catalog is generated from the most downloaded client-side mods on Modrinth and the most downloaded mods on CurseForge, with one key per mod. Each key is present in every jar of its mod that was read, isn't a vanilla key, and isn't shipped by any other listed mod. A scan only reports: it never records violations or runs actions. Its signs go out slowly (`mod-scan.signs-per-tick`, 5 by default, so a full scan takes about 10 seconds). Each sign is answered by the client, and ViaVersion or Paper kick clients that send too many packets a second. The signs sit in a small grid of columns above the player.
+
 ### Placeholders
 
 Available in all `commands`, `broadcast`, and `message` fields:
@@ -140,6 +150,7 @@ MiniMessage-style `<player>`, `<mod>`, etc. also work in the `staff-message` fie
 | `/antimod clear <player> [mod]`     | Clear violations (all mods, or one)      |
 | `/antimod info`                     | List configured mods                     |
 | `/antimod channels <player>`        | Show a player's registered plugin channels |
+| `/antimod mods <player>`            | Scan a player for known mods (report only) |
 
 Alias: `/am`
 

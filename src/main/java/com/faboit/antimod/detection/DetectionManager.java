@@ -5,10 +5,15 @@ import com.faboit.antimod.AntiMod;
 import com.faboit.antimod.action.ActionExecutor;
 import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.config.ModConfig;
+import com.faboit.antimod.config.ModCatalog;
 import com.faboit.antimod.config.SpoofModConfig;
+import com.faboit.antimod.detection.DetectionSession.ProbeKind;
 import com.faboit.antimod.util.ClientVersionUtil;
 import com.faboit.antimod.util.FloodgateUtil;
 import com.faboit.antimod.util.FoliaScheduler;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -181,7 +186,9 @@ public final class DetectionManager {
         // missing. Let the in-flight sweep finish instead.
         ProbeBatch inFlight = activeBatches.get(uuid);
         if (inFlight != null) {
-            if (!force && !inFlight.isExpired(timeoutMillis)) return;
+            // A scan runs longer than a sweep's window; only an admin's
+            // explicit check may cut it short.
+            if (!force && (inFlight.getScan() != null || !inFlight.isExpired(timeoutMillis))) return;
             // Expired (or explicitly superseded): retire it and clean up
             // whatever it left on the client.
             if (activeBatches.remove(uuid, inFlight)) {
@@ -194,7 +201,7 @@ public final class DetectionManager {
         for (ModConfig mod : cfg.getMods().values()) {
             if (!mod.isEnabled()) continue;
             for (String key : mod.getTranslationKeys()) {
-                probes.add(new PendingProbe(mod.getId(), key, false));
+                probes.add(new PendingProbe(mod.getId(), key, ProbeKind.BANNED));
             }
         }
 
@@ -219,7 +226,7 @@ public final class DetectionManager {
                     uuid, cfg.getFallbackMarker(), positions.get(signIndex));
             for (int i = start; i < end; i++) {
                 PendingProbe p = probes.get(i);
-                session.addLine(i - start, p.modId, p.key, p.spoofCheck);
+                session.addLine(i - start, p.modId, p.key, p.kind);
             }
             batch.addSession(session);
         }
@@ -228,6 +235,7 @@ public final class DetectionManager {
         // waiting for a response between signs.
         if (activeBatches.putIfAbsent(uuid, batch) != null) return;
         for (DetectionSession session : batch.getSessions()) {
+            session.markSent();
             packetSender.send(player, session);
         }
 
@@ -267,7 +275,7 @@ public final class DetectionManager {
             List<String> keys = new ArrayList<>(new LinkedHashSet<>(mod.getTranslationKeys()));
             batch.expectSpoofCheck(mod.getId(), channel, keys);
             for (String key : keys) {
-                probes.add(new PendingProbe(mod.getId(), key, true));
+                probes.add(new PendingProbe(mod.getId(), key, ProbeKind.SPOOF_CHECK));
             }
             budget--;
         }
@@ -279,7 +287,11 @@ public final class DetectionManager {
      * rather than at the timeout.
      */
     public void onSessionAnswered(Player player, ProbeBatch batch) {
-        if (batch.isComplete()) {
+        if (!batch.isComplete()) return;
+        if (batch.getScan() != null) {
+            activeBatches.remove(player.getUniqueId(), batch);
+            finishScan(player, batch);
+        } else {
             evaluateSpoofCheck(player, batch);
         }
     }
@@ -340,11 +352,130 @@ public final class DetectionManager {
         });
     }
 
+    // ------------------------------------------------------------------
+    //   Mod scan (/antimod mods)
+    // ------------------------------------------------------------------
+
+    /**
+     * Probes the player for every mod in mod-catalog.yml (and the banned
+     * mods), then reports to {@code requester}. A scan only reads: nothing it
+     * finds records a violation or runs an action. Its signs go out in waves
+     * of {@code mod-scan.signs-per-tick} so a large catalog doesn't arrive as
+     * one burst.
+     */
+    public void runModScan(Player target, CommandSender requester) {
+        FoliaScheduler.runNowOrSoon(plugin, target, () -> runModScanNow(target, requester));
+    }
+
+    private void runModScanNow(Player target, CommandSender requester) {
+        if (!target.isOnline()) {
+            requester.sendMessage(Component.text("Player not online.", NamedTextColor.RED));
+            return;
+        }
+        if (FloodgateUtil.isFloodgatePlayer(target)) {
+            requester.sendMessage(Component.text("[AntiMod] " + target.getName()
+                    + " is a Bedrock player: there are no Java mods to scan for.", NamedTextColor.YELLOW));
+            return;
+        }
+        ConfigManager cfg = plugin.getConfigManager();
+        UUID uuid = target.getUniqueId();
+        ProbeBatch inFlight = activeBatches.get(uuid);
+        if (inFlight != null && inFlight.getScan() != null) {
+            requester.sendMessage(Component.text("[AntiMod] A scan of " + target.getName()
+                    + " is already running.", NamedTextColor.YELLOW));
+            return;
+        }
+        if (inFlight != null && activeBatches.remove(uuid, inFlight)) {
+            cleanupUnanswered(target, inFlight);
+        }
+
+        ModCatalog catalog = cfg.getCatalog();
+        Map<String, String> names = ModScan.namesOf(catalog);
+        List<PendingProbe> probes = new ArrayList<>();
+        ProbeBatch batch = new ProbeBatch(uuid);
+        for (ModCatalog.CatalogMod mod : catalog.getMods()) {
+            for (String key : mod.keys()) probes.add(new PendingProbe(mod.id(), key, ProbeKind.CATALOG));
+            batch.expectCatalog(mod.id(), mod.keys());
+        }
+        // The banned mods too, reported by name but never acted on here.
+        for (ModConfig mod : cfg.getMods().values()) {
+            String owner = "config:" + mod.getId();
+            names.put(owner, mod.getDisplayName());
+            for (String key : mod.getTranslationKeys()) probes.add(new PendingProbe(owner, key, ProbeKind.CATALOG));
+            batch.expectCatalog(owner, mod.getTranslationKeys());
+        }
+        if (probes.isEmpty()) {
+            requester.sendMessage(Component.text("[AntiMod] The mod catalog is empty.", NamedTextColor.RED));
+            return;
+        }
+
+        int keysPerSign = cfg.getScanKeysPerSign();
+        int signCount = (probes.size() + keysPerSign - 1) / keysPerSign;
+        List<Vector3i> positions = packetSender.computeSignPositions(target, signCount);
+        List<DetectionSession> sessions = new ArrayList<>(signCount);
+        for (int signIndex = 0; signIndex < signCount; signIndex++) {
+            int start = signIndex * keysPerSign;
+            int end = Math.min(start + keysPerSign, probes.size());
+            DetectionSession session = new DetectionSession(uuid, cfg.getFallbackMarker(), positions.get(signIndex));
+            for (int i = start; i < end; i++) {
+                PendingProbe p = probes.get(i);
+                session.addLine(i - start, p.modId, p.key, p.kind);
+            }
+            sessions.add(session);
+            batch.addSession(session);
+        }
+        ModScan scan = new ModScan(requester, target, names, signCount);
+        batch.setScan(scan);
+        if (activeBatches.putIfAbsent(uuid, batch) != null) {
+            requester.sendMessage(Component.text("[AntiMod] " + target.getName()
+                    + " is being probed right now; try again in a moment.", NamedTextColor.YELLOW));
+            return;
+        }
+        requester.sendMessage(Component.text("[AntiMod] Scanning " + target.getName() + " for "
+                + names.size() + " mods (" + signCount + " signs)...", NamedTextColor.GRAY));
+
+        int perTick = cfg.getScanSignsPerTick();
+        int waves = (signCount + perTick - 1) / perTick;
+        for (int wave = 0; wave < waves; wave++) {
+            List<DetectionSession> slice = sessions.subList(wave * perTick, Math.min(signCount, (wave + 1) * perTick));
+            Runnable send = () -> {
+                if (activeBatches.get(uuid) != batch || !target.isOnline()) return;
+                for (DetectionSession s : slice) {
+                    s.markSent();
+                    packetSender.send(target, s);
+                }
+            };
+            if (wave == 0) send.run();
+            else FoliaScheduler.runTaskLater(plugin, target, send, wave);
+        }
+
+        FoliaScheduler.runGlobalTaskLater(plugin, () -> {
+            if (activeBatches.remove(uuid, batch)) {
+                cleanupUnanswered(target, batch);
+            }
+            finishScan(target, batch);
+        }, waves + cfg.getScanResponseTimeoutTicks());
+    }
+
+    private void finishScan(Player target, ProbeBatch batch) {
+        ModScan scan = batch.getScan();
+        if (scan == null || !scan.claimFinish()) return;
+        int unanswered = batch.getSessions().size();
+        ConfigManager cfg = plugin.getConfigManager();
+        FoliaScheduler.runGlobalTask(plugin, () -> {
+            try {
+                scan.report(batch, target, channelTracker, cfg.getCatalog(), cfg.getSpoofMods().values(), unanswered);
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.WARNING, "Failed to report the mod scan of " + scan.getTargetName(), t);
+            }
+        });
+    }
+
     /** Clears the ghost signs left by any session in the batch that never answered. */
     private void cleanupUnanswered(Player player, ProbeBatch batch) {
         if (player == null || !player.isOnline()) return;
         for (DetectionSession s : batch.getSessions()) {
-            if (!s.isResponded()) {
+            if (s.isSent() && !s.isResponded()) {
                 packetSender.sendCleanup(player, s.getSignPosition());
             }
         }
@@ -413,7 +544,7 @@ public final class DetectionManager {
     /** A matched sign response: the session that was probed and the sweep it belongs to. */
     public record Match(ProbeBatch batch, DetectionSession session) {}
 
-    private record PendingProbe(String modId, String key, boolean spoofCheck) {}
+    private record PendingProbe(String modId, String key, ProbeKind kind) {}
 
     /** A join probe waiting for the client's channel registration. */
     private static final class PendingJoin {
