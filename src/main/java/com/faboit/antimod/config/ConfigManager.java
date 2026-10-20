@@ -65,7 +65,7 @@ public final class ConfigManager {
 
     // Mod scan (/antimod mods)
     private volatile ModCatalog catalog = ModCatalog.empty();
-    private int scanKeysPerSign;
+    private int scanKeysPerLine;
     private int scanSignsPerTick;
     private int scanResponseTimeoutTicks;
 
@@ -148,8 +148,8 @@ public final class ConfigManager {
         spoofMods = loadSpoofMods();
 
         // --- mod scan ---
-        scanKeysPerSign = Math.max(1, Math.min(4, cfg.getInt("mod-scan.keys-per-sign", 4)));
-        scanSignsPerTick = Math.max(1, cfg.getInt("mod-scan.signs-per-tick", 5));
+        scanKeysPerLine = Math.max(1, Math.min(3, cfg.getInt("mod-scan.keys-per-line", 3)));
+        scanSignsPerTick = Math.max(0, cfg.getInt("mod-scan.signs-per-tick", 0));
         scanResponseTimeoutTicks = Math.max(1, cfg.getInt("mod-scan.response-timeout-ticks", 100));
         File catalogFile = new File(plugin.getDataFolder(), ModCatalog.FILE);
         if (!catalogFile.exists()) {
@@ -296,7 +296,7 @@ public final class ConfigManager {
     }
     public ModConfig getSpoofDetector() { return spoofDetector; }
     public ModCatalog getCatalog() { return catalog; }
-    public int getScanKeysPerSign() { return scanKeysPerSign; }
+    public int getScanKeysPerLine() { return scanKeysPerLine; }
     public int getScanSignsPerTick() { return scanSignsPerTick; }
     public int getScanResponseTimeoutTicks() { return scanResponseTimeoutTicks; }
     public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }

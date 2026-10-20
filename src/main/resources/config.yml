@@ -214,14 +214,17 @@ spoof-detection:
 #     their keys resolved or "keys hidden" if every key came back untranslated
 # A scan only reports. It never records violations or runs actions.
 mod-scan:
-  # Translation keys packed into each sign (1-4). 4 = fewest signs.
-  keys-per-sign: 4
+  # Translation keys packed into each sign LINE (1-3; 4 lines per sign).
+  # The client answers every sign with one packet, so packing more keys means
+  # far fewer answers: at 3, the full catalog fits in roughly 400 signs.
+  # 3 is the most that safely fits the 384 characters a line's answer may use.
+  keys-per-line: 3
 
-  # Signs sent per tick. The client answers every sign, and ViaVersion kicks
-  # clients that send more than 800 packets a second (warning from 120), as
-  # can Paper's packet limiter. 5 = about 100 answers a second, so a full
-  # scan of a few thousand mods takes around 10 seconds. Raise with care.
-  signs-per-tick: 5
+  # 0 = send the whole scan at once (it finishes in about a second). A huge
+  # scan is still split into bursts of 600 signs a second apart, since
+  # ViaVersion kicks clients that answer with over 800 packets a second.
+  # Set a number to pace it at that many signs per tick instead.
+  signs-per-tick: 0
 
   # How long to wait for answers after the last sign went out (ticks).
   response-timeout-ticks: 100

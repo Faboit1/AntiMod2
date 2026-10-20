@@ -229,7 +229,22 @@ public final class SignPacketSender {
         NBTList<NBTCompound> messages = new NBTList<>(NBTType.COMPOUND);
         for (int line = 0; line < 4; line++) {
             NBTCompound msg = new NBTCompound();
-            if (session.hasLine(line)) {
+            List<DetectionSession.PackedProbe> packed = session.getPackedAt(line);
+            if (packed != null) {
+                // {text:"", extra:[{text:"¦0¦"}, {translate:k0, fallback:""}, {text:"¦1¦"}, ...]}
+                NBTList<NBTCompound> extra = new NBTList<>(NBTType.COMPOUND);
+                for (int i = 0; i < packed.size(); i++) {
+                    NBTCompound mark = new NBTCompound();
+                    mark.setTag("text", new NBTString(DetectionSession.marker(i)));
+                    extra.addTag(mark);
+                    NBTCompound probe = new NBTCompound();
+                    probe.setTag("translate", new NBTString(packed.get(i).key()));
+                    probe.setTag("fallback", new NBTString(""));
+                    extra.addTag(probe);
+                }
+                msg.setTag("text", new NBTString(""));
+                msg.setTag("extra", extra);
+            } else if (session.hasLine(line)) {
                 msg.setTag("translate", new NBTString(session.getKeyAt(line)));
                 msg.setTag("fallback", new NBTString(fallback));
             } else {

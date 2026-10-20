@@ -409,17 +409,33 @@ public final class DetectionManager {
             return;
         }
 
-        int keysPerSign = cfg.getScanKeysPerSign();
-        int signCount = (probes.size() + keysPerSign - 1) / keysPerSign;
+        // Several keys share each line, so the client sends one reply per four
+        // lines' worth of keys. A line's reply must stay within the 384
+        // characters the server accepts: each key is budgeted as if it
+        // rendered 100 characters (a long translation, or the raw key on
+        // clients before 1.19.4) plus its marker.
+        List<List<DetectionSession.PackedProbe>> lines = new ArrayList<>();
+        List<DetectionSession.PackedProbe> line = new ArrayList<>();
+        int used = 0;
+        for (PendingProbe p : probes) {
+            int cost = Math.max(p.key.length(), 100) + 8;
+            if (!line.isEmpty() && (line.size() >= cfg.getScanKeysPerLine() || used + cost > MAX_LINE_BUDGET)) {
+                lines.add(line);
+                line = new ArrayList<>();
+                used = 0;
+            }
+            line.add(new DetectionSession.PackedProbe(p.modId, p.key));
+            used += cost;
+        }
+        lines.add(line);
+
+        int signCount = (lines.size() + 3) / 4;
         List<Vector3i> positions = packetSender.computeSignPositions(target, signCount);
         List<DetectionSession> sessions = new ArrayList<>(signCount);
         for (int signIndex = 0; signIndex < signCount; signIndex++) {
-            int start = signIndex * keysPerSign;
-            int end = Math.min(start + keysPerSign, probes.size());
             DetectionSession session = new DetectionSession(uuid, cfg.getFallbackMarker(), positions.get(signIndex));
-            for (int i = start; i < end; i++) {
-                PendingProbe p = probes.get(i);
-                session.addLine(i - start, p.modId, p.key, p.kind);
+            for (int l = 0; l < 4 && signIndex * 4 + l < lines.size(); l++) {
+                session.addPackedLine(l, lines.get(signIndex * 4 + l));
             }
             sessions.add(session);
             batch.addSession(session);
@@ -434,10 +450,15 @@ public final class DetectionManager {
         requester.sendMessage(Component.text("[AntiMod] Scanning " + target.getName() + " for "
                 + names.size() + " mods (" + signCount + " signs)...", NamedTextColor.GRAY));
 
+        // Every sign gets a reply. ViaVersion kicks clients sending over 800
+        // packets a second, so "all at once" (signs-per-tick 0) still splits a
+        // huge scan into bursts of MAX_BURST signs a second apart.
         int perTick = cfg.getScanSignsPerTick();
-        int waves = (signCount + perTick - 1) / perTick;
+        int burst = perTick > 0 ? perTick : MAX_BURST;
+        int gap = perTick > 0 ? 1 : 20;
+        int waves = (signCount + burst - 1) / burst;
         for (int wave = 0; wave < waves; wave++) {
-            List<DetectionSession> slice = sessions.subList(wave * perTick, Math.min(signCount, (wave + 1) * perTick));
+            List<DetectionSession> slice = sessions.subList(wave * burst, Math.min(signCount, (wave + 1) * burst));
             Runnable send = () -> {
                 if (activeBatches.get(uuid) != batch || !target.isOnline()) return;
                 for (DetectionSession s : slice) {
@@ -446,7 +467,7 @@ public final class DetectionManager {
                 }
             };
             if (wave == 0) send.run();
-            else FoliaScheduler.runTaskLater(plugin, target, send, wave);
+            else FoliaScheduler.runTaskLater(plugin, target, send, (long) wave * gap);
         }
 
         FoliaScheduler.runGlobalTaskLater(plugin, () -> {
@@ -454,7 +475,7 @@ public final class DetectionManager {
                 cleanupUnanswered(target, batch);
             }
             finishScan(target, batch);
-        }, waves + cfg.getScanResponseTimeoutTicks());
+        }, (long) (waves - 1) * gap + cfg.getScanResponseTimeoutTicks());
     }
 
     private void finishScan(Player target, ProbeBatch batch) {
@@ -545,6 +566,11 @@ public final class DetectionManager {
     public record Match(ProbeBatch batch, DetectionSession session) {}
 
     private record PendingProbe(String modId, String key, ProbeKind kind) {}
+
+    /** Reply characters a packed scan line may use; the server accepts 384. */
+    private static final int MAX_LINE_BUDGET = 380;
+    /** Most scan signs sent in one burst, kept well under ViaVersion's 800 packets/second. */
+    private static final int MAX_BURST = 600;
 
     /** A join probe waiting for the client's channel registration. */
     private static final class PendingJoin {

@@ -13,6 +13,7 @@ import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.entity.Player;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -95,6 +96,20 @@ public final class SignResponseListener extends PacketListenerAbstract {
                     // tampering, which the spoof check weighs separately.
                     boolean rawEcho = probedKey.equals(returned);
 
+                    List<DetectionSession.PackedProbe> packed = session.getPackedAt(i);
+                    if (packed != null) {
+                        // Several catalog keys in one line: a key resolved if its
+                        // slice is neither empty (the fallback) nor the raw key
+                        // (what clients before 1.19.4 show instead).
+                        String[] parts = returned == null ? null : DetectionSession.unpack(returned, packed.size());
+                        if (parts == null) continue; // mangled: leave these unanswered
+                        for (int j = 0; j < parts.length; j++) {
+                            DetectionSession.PackedProbe p = packed.get(j);
+                            batch.recordCatalogAnswer(p.owner(), p.key(),
+                                    !parts[j].isEmpty() && !parts[j].equals(p.key()));
+                        }
+                        continue;
+                    }
                     ProbeKind kind = session.getKindAt(i);
                     if (kind == ProbeKind.CATALOG) {
                         // Only reported: a real, non-empty translation counts.
