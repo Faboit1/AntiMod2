@@ -304,6 +304,49 @@ pack-check:
     keep-pack: true
 
 # =====================================================================
+# Teleport check (Autism Client)
+# =====================================================================
+# Autism Client hides from every other check: it reports the "vanilla"
+# brand, blocks its own channels and ships no translation keys. But its
+# always-on packet filter silently drops any server teleport whose rotation
+# isn't a normal number - and with it the "teleport accepted" reply a vanilla
+# client always sends. AntiMod sends two teleports to where the player
+# already stands, in one bundle:
+#   - one with a NaN yaw (vanilla ignores the bad rotation and confirms)
+#   - one with their own yaw/pitch (both clients confirm this one)
+# Both confirmed = clean. Only the second = detected. Neither = no answer.
+# Nothing visible happens to the player. Clients before 1.21.2 are skipped.
+#
+# Another anti-crash mod that drops broken teleports would fail it the same
+# way, so start with run-actions off and look at the results first.
+# Also run by hand: /antimod check <player> --teleport
+teleport-check:
+  enabled: true
+
+  # Check every Java player once their client has loaded the world.
+  on-join: true
+
+  # Wait this long after the client has loaded the world (ticks).
+  delay-ticks: 40
+
+  # Give up after this long without the second confirmation (ticks).
+  timeout-ticks: 100
+
+  # Run the actions below on a detection. Off: detections are only reported
+  # (staff with antimod.notify, the console, and whoever ran the command).
+  run-actions: false
+
+  # How detections are recorded and acted on (same format as a mod's actions).
+  id: "autism-client"
+  display-name: "Autism Client"
+  actions:
+    - threshold: 1
+      commands:
+        - "kick {player} &cHacked clients are not allowed."
+      broadcast: "&e[AntiMod] &e{player} &7was kicked for using &cAutism Client"
+      staff-only: true
+
+# =====================================================================
 # Banned mods & actions
 # =====================================================================
 # Each entry under `mods` is one mod to detect.

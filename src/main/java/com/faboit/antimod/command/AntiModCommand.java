@@ -7,6 +7,7 @@ import com.faboit.antimod.config.SpoofModConfig;
 import com.faboit.antimod.detection.ChannelTracker;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.detection.PackCheck;
+import com.faboit.antimod.detection.TeleportCheck;
 import com.faboit.antimod.violation.ViolationManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -32,13 +33,15 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
     private final DetectionManager detection;
     private final ViolationManager violations;
     private final PackCheck packCheck;
+    private final TeleportCheck teleportCheck;
 
     public AntiModCommand(AntiMod plugin, DetectionManager detection, ViolationManager violations,
-                          PackCheck packCheck) {
+                          PackCheck packCheck, TeleportCheck teleportCheck) {
         this.plugin = plugin;
         this.detection = detection;
         this.violations = violations;
         this.packCheck = packCheck;
+        this.teleportCheck = teleportCheck;
     }
 
     @Override
@@ -70,9 +73,9 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Component.text("AntiMod commands:", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/antimod reload", NamedTextColor.AQUA)
                 .append(Component.text(" - reload config", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/antimod check <player> [--pack]", NamedTextColor.AQUA)
+        sender.sendMessage(Component.text("/antimod check <player> [--pack|--teleport]", NamedTextColor.AQUA)
                 .append(Component.text(" - probe a player now; --pack runs the ExploitPreventer"
-                        + " resource-pack check instead", NamedTextColor.GRAY)));
+                        + " resource-pack check, --teleport the Autism Client teleport check", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/antimod violations <player>", NamedTextColor.AQUA)
                 .append(Component.text(" - show violation history", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/antimod clear <player> [mod]", NamedTextColor.AQUA)
@@ -100,7 +103,7 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
 
     private void check(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage(Component.text("Usage: /antimod check <player> [--pack]", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Usage: /antimod check <player> [--pack|--teleport]", NamedTextColor.RED));
             return;
         }
         Player target = Bukkit.getPlayerExact(args[1]);
@@ -110,6 +113,10 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
         }
         if (Arrays.stream(args).skip(2).anyMatch(a -> a.equalsIgnoreCase("--pack"))) {
             packCheck.start(target, sender);
+            return;
+        }
+        if (Arrays.stream(args).skip(2).anyMatch(a -> a.equalsIgnoreCase("--teleport"))) {
+            teleportCheck.start(target, sender);
             return;
         }
         detection.runFullDetection(target, true);
@@ -258,11 +265,12 @@ public final class AntiModCommand implements CommandExecutor, TabCompleter {
             return filter(List.of("--slow"), args[2]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("check")) {
-            return filter(List.of("--pack"), args[2]);
+            return filter(List.of("--pack", "--teleport"), args[2]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("clear")) {
             List<String> ids = new ArrayList<>(plugin.getConfigManager().getMods().keySet());
             ids.add(plugin.getConfigManager().getSpoofDetector().getId());
+            ids.add(plugin.getConfigManager().getTeleportDetector().getId());
             return filter(ids, args[2]);
         }
         return List.of();

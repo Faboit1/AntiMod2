@@ -155,6 +155,21 @@ Players whose server resource-pack setting is *Prompt* see a pack prompt, plus a
 
 Setup: the HTTP server needs a port players can reach. On Pterodactyl, add an allocation, then set `pack-check.port` and `pack-check.public-url` (e.g. `http://play.example.com:25590`) in `config.yml` and restart.
 
+## Teleport check (Autism Client)
+
+Autism Client hides from every other check: it reports the *vanilla* brand, blocks its own channels, ships no translation keys, and copies ExploitPreventer's key filter (without its redirect bug). Its weak spot is an always-on packet filter that silently drops any server teleport whose rotation isn't a normal number (NaN, infinite or beyond 1e9), and with it the "teleport accepted" reply. A vanilla client applies such a teleport, ignores the bad rotation (Minecraft discards non-finite yaw/pitch) and always confirms it.
+
+So AntiMod sends two teleports to where the player already stands, in one packet bundle:
+
+| Teleport | Rotation | Vanilla | Autism |
+|---|---|---|---|
+| Trap | yaw = NaN | confirms (rotation ignored) | drops it, no confirmation |
+| Control | the player's own yaw/pitch | confirms | confirms |
+
+Both confirmed = clean, only the control = detected, neither = inconclusive (lag, disconnect). Nothing visible happens to the player: the bundle makes the client handle both in the same tick, and the control teleport overwrites the NaN vanilla keeps as the previous-frame rotation. Paper ignores confirmations for teleport ids it didn't issue, so the replies are only observed.
+
+It runs on join by default (`teleport-check.on-join`) and by hand with `/antimod check <player> --teleport`. Detections go to staff with `antimod.notify` and the console. Kicking is off until you set `teleport-check.run-actions: true`, because another anti-crash mod that drops broken teleports would fail the same way. Clients before 1.21.2 are skipped (Autism only runs on 26.x). On a server with an anticheat that tracks teleports (e.g. Grim), try it on a test server with that anticheat first.
+
 ### Placeholders
 
 Available in all `commands`, `broadcast`, and `message` fields:
@@ -175,7 +190,7 @@ MiniMessage-style `<player>`, `<mod>`, etc. also work in the `staff-message` fie
 | Command                             | Description                              |
 |-------------------------------------|------------------------------------------|
 | `/antimod reload`                   | Reload `config.yml`                      |
-| `/antimod check <player> [--pack]`  | Probe a player right now; `--pack` runs the ExploitPreventer pack check instead |
+| `/antimod check <player> [--pack\|--teleport]` | Probe a player right now; `--pack` runs the ExploitPreventer pack check, `--teleport` the Autism Client teleport check |
 | `/antimod violations <player>`      | Show a player's per-mod violation counts |
 | `/antimod clear <player> [mod]`     | Clear violations (all mods, or one)      |
 | `/antimod info`                     | List configured mods                     |

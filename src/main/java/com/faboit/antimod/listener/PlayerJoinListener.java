@@ -1,8 +1,10 @@
 package com.faboit.antimod.listener;
 
 import com.faboit.antimod.AntiMod;
+import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.detection.PackCheck;
+import com.faboit.antimod.detection.TeleportCheck;
 import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -26,22 +28,25 @@ public final class PlayerJoinListener implements Listener {
     private final AntiMod plugin;
     private final DetectionManager manager;
     private final PackCheck packCheck;
+    private final TeleportCheck teleportCheck;
     private final boolean waitForWorldLoad;
 
     /** Players who joined and whose client has not loaded the world yet. */
     private final Set<UUID> awaitingWorld = ConcurrentHashMap.newKeySet();
 
     public PlayerJoinListener(AntiMod plugin, DetectionManager manager, PackCheck packCheck,
-                              boolean waitForWorldLoad) {
+                              TeleportCheck teleportCheck, boolean waitForWorldLoad) {
         this.plugin = plugin;
         this.manager = manager;
         this.packCheck = packCheck;
+        this.teleportCheck = teleportCheck;
         this.waitForWorldLoad = waitForWorldLoad;
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        if (!plugin.getConfigManager().isOnJoinEnabled() && !plugin.getConfigManager().isPackCheckOnJoin()) return;
+        ConfigManager cfg = plugin.getConfigManager();
+        if (!cfg.isOnJoinEnabled() && !cfg.isPackCheckOnJoin() && !cfg.isTeleportCheckOnJoin()) return;
         Player player = event.getPlayer();
         if (player.hasPermission("antimod.bypass")) return;
 
@@ -70,6 +75,7 @@ public final class PlayerJoinListener implements Listener {
         // spoof check on - once the client has announced its plugin channels.
         if (plugin.getConfigManager().isOnJoinEnabled()) manager.scheduleJoinProbe(player);
         if (plugin.getConfigManager().isPackCheckOnJoin()) packCheck.scheduleOnJoin(player);
+        if (plugin.getConfigManager().isTeleportCheckOnJoin()) teleportCheck.scheduleOnJoin(player);
     }
 
     @EventHandler

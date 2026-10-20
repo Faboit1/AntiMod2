@@ -6,6 +6,7 @@ import com.faboit.antimod.config.ConfigManager;
 import com.faboit.antimod.detection.ChannelTracker;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.detection.PackCheck;
+import com.faboit.antimod.detection.TeleportCheck;
 import com.faboit.antimod.detection.SignResponseListener;
 import com.faboit.antimod.listener.PlayerJoinListener;
 import com.faboit.antimod.listener.WorldLoadedListener;
@@ -28,6 +29,7 @@ public final class AntiMod extends JavaPlugin {
     private ViolationManager violationManager;
     private DetectionManager detectionManager;
     private PackCheck packCheck;
+    private TeleportCheck teleportCheck;
     private final List<PacketListenerCommon> packetListeners = new ArrayList<>();
     /** The instance AntiMod's listeners were registered on. */
     private PacketEventsAPI<?> packetEvents;
@@ -85,10 +87,16 @@ public final class AntiMod extends JavaPlugin {
         packCheck.start();
         getServer().getPluginManager().registerEvents(packCheck, this);
 
+        // Teleport trap for Autism Client (on join, and /antimod check <player> --teleport)
+        this.teleportCheck = new TeleportCheck(this, actionExecutor);
+        teleportCheck.register();
+        packetListeners.add(teleportCheck);
+        getServer().getPluginManager().registerEvents(teleportCheck, this);
+
         // Event listener for join/quit. On Paper 1.21.4+ the join sweep waits
         // until the client reports it has loaded the world.
         boolean worldLoadEvent = WorldLoadedListener.isSupported();
-        PlayerJoinListener joinListener = new PlayerJoinListener(this, detectionManager, packCheck, worldLoadEvent);
+        PlayerJoinListener joinListener = new PlayerJoinListener(this, detectionManager, packCheck, teleportCheck, worldLoadEvent);
         getServer().getPluginManager().registerEvents(joinListener, this);
         if (worldLoadEvent) {
             getServer().getPluginManager().registerEvents(new WorldLoadedListener(joinListener), this);
@@ -97,7 +105,7 @@ public final class AntiMod extends JavaPlugin {
         // Command
         PluginCommand cmd = getCommand("antimod");
         if (cmd != null) {
-            AntiModCommand executor = new AntiModCommand(this, detectionManager, violationManager, packCheck);
+            AntiModCommand executor = new AntiModCommand(this, detectionManager, violationManager, packCheck, teleportCheck);
             cmd.setExecutor(executor);
             cmd.setTabCompleter(executor);
         }

@@ -84,6 +84,14 @@ public final class ConfigManager {
     private int packCheckOnJoinDelayTicks;
     private boolean packCheckOnJoinKeepPack;
 
+    // --- teleport check (Autism Client) ---
+    private boolean teleportCheckEnabled;
+    private boolean teleportCheckOnJoin;
+    private int teleportCheckDelayTicks;
+    private int teleportCheckTimeoutTicks;
+    private boolean teleportCheckRunActions;
+    private ModConfig teleportDetector;
+
     public ConfigManager(AntiMod plugin) {
         this.plugin = plugin;
     }
@@ -181,6 +189,20 @@ public final class ConfigManager {
         packCheckOnJoinRequired = cfg.getBoolean("pack-check.on-join.required", false);
         packCheckOnJoinDelayTicks = Math.max(0, cfg.getInt("pack-check.on-join.delay-ticks", 20));
         packCheckOnJoinKeepPack = cfg.getBoolean("pack-check.on-join.keep-pack", true);
+
+        // --- teleport check ---
+        teleportCheckEnabled = cfg.getBoolean("teleport-check.enabled", true);
+        teleportCheckOnJoin = cfg.getBoolean("teleport-check.on-join", true);
+        teleportCheckDelayTicks = Math.max(0, cfg.getInt("teleport-check.delay-ticks", 40));
+        teleportCheckTimeoutTicks = Math.max(20, cfg.getInt("teleport-check.timeout-ticks", 100));
+        teleportCheckRunActions = cfg.getBoolean("teleport-check.run-actions", false);
+        ConfigurationSection teleportSection = cfg.getConfigurationSection("teleport-check");
+        teleportDetector = new ModConfig(
+                cfg.getString("teleport-check.id", "autism-client"),
+                cfg.getString("teleport-check.display-name", "Autism Client"),
+                teleportCheckEnabled,
+                Collections.emptyList(),
+                teleportSection == null ? Collections.emptyList() : parseActions(teleportSection));
         File catalogFile = new File(plugin.getDataFolder(), ModCatalog.FILE);
         if (!catalogFile.exists()) {
             plugin.saveResource(ModCatalog.FILE, false);
@@ -304,6 +326,9 @@ public final class ConfigManager {
         if (mod == null && spoofDetector != null && spoofDetector.getId().equals(id)) {
             return spoofDetector;
         }
+        if (mod == null && teleportDetector != null && teleportDetector.getId().equals(id)) {
+            return teleportDetector;
+        }
         return mod;
     }
 
@@ -344,5 +369,12 @@ public final class ConfigManager {
     public boolean isPackCheckOnJoinRequired() { return packCheckOnJoinRequired; }
     public int getPackCheckOnJoinDelayTicks() { return packCheckOnJoinDelayTicks; }
     public boolean isPackCheckOnJoinKeepPack() { return packCheckOnJoinKeepPack; }
+
+    public boolean isTeleportCheckEnabled() { return teleportCheckEnabled; }
+    public boolean isTeleportCheckOnJoin() { return teleportCheckEnabled && teleportCheckOnJoin; }
+    public int getTeleportCheckDelayTicks() { return teleportCheckDelayTicks; }
+    public int getTeleportCheckTimeoutTicks() { return teleportCheckTimeoutTicks; }
+    public boolean isTeleportCheckRunActions() { return teleportCheckRunActions; }
+    public ModConfig getTeleportDetector() { return teleportDetector; }
     public Map<String, SpoofModConfig> getSpoofMods() { return spoofMods; }
 }
