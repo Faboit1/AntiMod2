@@ -6,11 +6,21 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 /**
@@ -36,6 +46,23 @@ public final class ViolationManager {
      * command for that threshold never runs.
      */
     private final Object lock = new Object();
+
+    /**
+     * Serialises the actual file writes, so a debounced save and the final
+     * flush on shutdown can never interleave. Always taken before {@link #lock}
+     * is released, never while holding it.
+     */
+    private final Object writeLock = new Object();
+
+    /** Saves are coalesced: a burst of violations costs one write, off the caller's thread. */
+    private static final long SAVE_DELAY_MILLIS = 2000L;
+
+    private final AtomicBoolean savePending = new AtomicBoolean();
+    private final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "AntiMod-violation-saver");
+        t.setDaemon(true);
+        return t;
+    });
 
     private File file;
     private YamlConfiguration data;
@@ -65,16 +92,60 @@ public final class ViolationManager {
         pruneExpired();
     }
 
+    /** Writes the current state to disk now, on the calling thread. */
     public void save() {
-        synchronized (lock) {
-            saveLocked();
+        flush();
+    }
+
+    /** Flushes outstanding changes and stops the background saver. Call on disable. */
+    public void close() {
+        saver.shutdown();
+        try {
+            saver.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        flush();
+    }
+
+    /**
+     * Requests a save without blocking the caller. The YAML is rewritten whole,
+     * which grows with every player ever recorded, so doing it inline would
+     * stall whichever region thread resolved the detection.
+     */
+    private void markDirty() {
+        if (!savePending.compareAndSet(false, true)) return;
+        try {
+            saver.schedule(this::flush, SAVE_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException e) {
+            flush();
         }
     }
 
-    private void saveLocked() {
-        if (data == null || file == null) return;
+    private void flush() {
+        savePending.set(false);
+        String yaml;
+        File target;
+        synchronized (lock) {
+            if (data == null || file == null) return;
+            yaml = data.saveToString();
+            target = file;
+        }
+        synchronized (writeLock) {
+            writeAtomically(target, yaml);
+        }
+    }
+
+    private void writeAtomically(File target, String yaml) {
+        Path dest = target.toPath();
+        Path tmp = dest.resolveSibling(target.getName() + ".tmp");
         try {
-            data.save(file);
+            Files.writeString(tmp, yaml, StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             plugin.getLogger().log(Level.SEVERE, "Could not save violations file.", e);
         }
@@ -100,7 +171,7 @@ public final class ViolationManager {
         int count = mod.getInt("count", 0) + 1;
         mod.set("count", count);
         mod.set("last", System.currentTimeMillis());
-        saveLocked();
+        markDirty();
         return count;
     }
 
@@ -148,7 +219,7 @@ public final class ViolationManager {
     public void clear(UUID uuid) {
         synchronized (lock) {
             data.set(uuid.toString(), null);
-            saveLocked();
+            markDirty();
         }
     }
 
@@ -157,7 +228,7 @@ public final class ViolationManager {
             ConfigurationSection player = data.getConfigurationSection(uuid.toString());
             if (player == null) return;
             player.set(modId, null);
-            saveLocked();
+            markDirty();
         }
     }
 
@@ -190,6 +261,6 @@ public final class ViolationManager {
                 data.set(uuidKey, null);
             }
         }
-        saveLocked();
+        markDirty();
     }
 }
