@@ -205,6 +205,7 @@ public final class ConfigManager {
             result.put(id, new SpoofModConfig(id,
                     m.getString("display-name", id),
                     m.getBoolean("enabled", true),
+                    m.getBoolean("trusted", false),
                     channels,
                     keys));
         }

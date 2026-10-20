@@ -118,10 +118,12 @@ storage:
 # keys per mod). Add your own there; `/antimod channels <player>` shows what
 # a client registered.
 #
-# Note: by default, OpSec (AUTO whitelist) and ExploitPreventer both let the
-# keys of channel-registering mods resolve, so a default install answers
-# consistently and is NOT flagged. This catches stricter setups, e.g. keys
-# blocked for a mod whose channels are still visible.
+# Note: by default, OpSec (AUTO whitelist) and ExploitPreventer let the keys
+# of most channel-registering mods resolve. OpSec still hides a few of them
+# (Plasmo Voice, Customizable Player Models, Collective). Those entries are
+# marked `trusted: true` in spoof-mods.yml: a trusted entry decides on its
+# own, so hidden keys there flag the player even when every other mod
+# verified.
 spoof-detection:
   enabled: true
 
@@ -139,7 +141,8 @@ spoof-detection:
   channel-settle-ticks: 2
 
   # How many channel-confirmed mods to probe per sweep (each adds up to 3
-  # keys). The first matches in spoof-mods.yml order are used.
+  # keys). The first matches in spoof-mods.yml order are used. Trusted
+  # entries are always probed and don't count toward this.
   max-mods-per-sweep: 8
 
   # A client that hides translations hides them for every mod. So a player is
@@ -147,13 +150,16 @@ spoof-detection:
   # OUTNUMBER the ones that resolved theirs: if most mods verify, the player
   # is fine even if a few did not. On top of that, at least this many mods
   # must be hidden, so one stray channel can never flag anyone on its own.
-  # 1 is stricter but less forgiving.
+  # 1 is stricter but less forgiving. Trusted entries skip this vote: one
+  # hidden trusted mod flags, one verified trusted mod clears.
   min-hidden-mods: 2
 
   # Retire unreliable entries automatically: when an entry fails for this many
   # DIFFERENT players who verified every other mod in the same sweep, it is
   # commented out in spoof-mods.yml (with a note why) and the list reloads.
-  # Tallies are kept in spoof-mod-misses.yml. 0 = never.
+  # Tallies are kept in spoof-mod-misses.yml. 0 = never. Trusted entries are
+  # never auto-disabled (an OpSec user fails exactly those while verifying
+  # the rest, which would otherwise retire them).
   auto-disable-after: 5
 
   # Also flag a Java 1.19.4+ client that echoes a probed key back verbatim:

@@ -20,6 +20,7 @@ public final class SpoofModConfig {
     private final String id;
     private final String displayName;
     private final boolean enabled;
+    private final boolean trusted;
     private final List<String> channelPatterns;
     private final List<Pattern> compiledPatterns;
     private final List<String> translationKeys;
@@ -27,11 +28,13 @@ public final class SpoofModConfig {
     public SpoofModConfig(String id,
                           String displayName,
                           boolean enabled,
+                          boolean trusted,
                           List<String> channelPatterns,
                           List<String> translationKeys) {
         this.id = id;
         this.displayName = displayName == null ? id : displayName;
         this.enabled = enabled;
+        this.trusted = trusted;
         this.channelPatterns = channelPatterns == null
                 ? Collections.emptyList()
                 : List.copyOf(channelPatterns);
@@ -49,6 +52,12 @@ public final class SpoofModConfig {
     public String getId() { return id; }
     public String getDisplayName() { return displayName; }
     public boolean isEnabled() { return enabled; }
+
+    /**
+     * Max priority: this entry's result decides on its own. Hidden keys flag
+     * the player regardless of the other mods, verified keys clear them.
+     */
+    public boolean isTrusted() { return trusted; }
     public List<String> getChannelPatterns() { return channelPatterns; }
     public List<String> getTranslationKeys() { return translationKeys; }
 

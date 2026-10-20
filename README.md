@@ -101,6 +101,16 @@ mods:
 
 A client that hides translations hides them for every mod. So a player is only flagged when the channel-confirmed mods that hid all their keys **outnumber** the ones that resolved theirs. If most mods verify, the player is fine even if a few didn't. By default every detection kicks the player and alerts staff.
 
+**Trusted entries (max priority).** An entry with `trusted: true` skips that vote: if its keys are hidden the player is flagged straight away, and if they verify the player is cleared. Trusted entries are always probed and never auto-disabled. OpSec lets most channel mods' keys through but still hides a few, so these ship trusted:
+
+| Entry | Channel | Why it's safe to trust |
+|---|---|---|
+| Plasmo Voice | `plasmo:*` | Every 2.x build (74 sampled) has `key.plasmovoice.general`/`settings`; every 1.x build (25, MC 1.16.4–1.19.3) has `key.plasmo_voice.ptt`/`mute`. |
+| Customizable Player Models | `cpm_net:*` | All 134 sampled builds that use networking have `key.cpm.gestureMenu`, `key.cpm.category` and `key.cpm.qa_1`. |
+| Collective | `collective:collective_installed_packet` | Only Collective 8.27+ registers this channel, and all 109 of those builds ship the keys. Older Collective has no channel or lang file of its own and never matches. |
+
+Only trust an entry after checking that **every** build that registers the channel ships the keys. A wrong trusted entry kicks everyone who uses that mod.
+
 When an entry fails for **5 different players** who verified every other mod in the same sweep, the entry is the problem, not the players. AntiMod comments it out in `spoof-mods.yml` with a note explaining why and reloads the list. The tallies live in `spoof-mod-misses.yml`, and `auto-disable-after` sets the count.
 
 `/antimod channels <player>` shows what a client registered and which entries those channels match, which makes it easy to add a new mod. Settings and actions are under `spoof-detection` in `config.yml`.
@@ -113,7 +123,9 @@ When an entry fails for **5 different players** who verified every other mod in 
 - **Self-cleaning list:** entries that keep failing for players who verify everything else are disabled automatically (see above).
 - **Keys that exist in every build:** each key in `spoof-mods.yml` is present in **every** sampled build of its mod (Fabric, Quilt, Forge and NeoForge, MC 1.16.5+, newest and oldest build per MC release). It isn't a vanilla key, no other mod ships it, and its value is non-empty and safe in every language.
 
-**Limitation:** with their default settings, OpSec (AUTO whitelist) and ExploitPreventer both deliberately let the keys of channel-registering mods resolve. A default install therefore answers consistently and is **not** flagged. The check catches stricter setups, where keys are blocked for a mod whose channels are still visible.
+**Limitation:** with their default settings, OpSec (AUTO whitelist) and ExploitPreventer let the keys of most channel-registering mods resolve, so the majority vote alone would clear them. A default OpSec install is caught through the trusted entries above, which it still hides. A client running none of those mods is caught only when its setup blocks keys for enough other mods whose channels are visible.
+
+**Proxy plugins:** a Velocity plugin that registers a trusted entry's channel (for example a Plasmo Voice proxy add-on) would put that channel on every player. Add its channels to `ignore-channels` before installing it.
 
 ## Mod scan (`/antimod mods <player>`)
 

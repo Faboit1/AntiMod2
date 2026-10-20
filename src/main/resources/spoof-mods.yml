@@ -15,6 +15,13 @@
 #   channels       Channel patterns; `*` matches anything, e.g. "voicechat:*".
 #   keys           Translation keys from the mod's lang file. Any ONE of them
 #                  resolving clears the mod, so list a few stable ones.
+#   trusted        Max priority (default false). The entry's result decides on
+#                  its own: keys hidden = flagged straight away, whatever the
+#                  other mods answered; keys verified = not flagged. Trusted
+#                  entries are always probed and are never auto-disabled, so
+#                  only trust a mod after checking that EVERY build that
+#                  registers the channel ships the keys. One bad trusted entry
+#                  kicks every player who uses that mod.
 #
 # Picking keys for a new mod: open the mod jar, read
 # assets/<modid>/lang/en_us.json and choose short keys that clearly belong
@@ -37,6 +44,49 @@
 # are probed, so keep reliable mods near the top.
 # =====================================================================
 mods:
+  # ---- Trusted (max priority) ---------------------------------------
+  # Mods OpSec was seen hiding even though the client announced their
+  # channel, while it let most other mods' keys through (so the majority
+  # rule alone would clear an OpSec user).
+
+  plasmo-voice:
+    display-name: "Plasmo Voice"
+    trusted: true
+    channels:
+      - "plasmo:*"            # 1.x registers plasmo:voice, 2.x plasmo:voice/v2/...
+      - "plasmovoice:*"
+    keys:
+      - "key.plasmovoice.general"     # 2.x (all 74 sampled builds)
+      - "key.plasmovoice.settings"    # 2.x
+      - "key.plasmo_voice.ptt"        # 1.x (all 25 builds, MC 1.16.4-1.19.3)
+      - "key.plasmo_voice.mute"       # 1.x
+
+  custom-player-models:
+    display-name: "Customizable Player Models"
+    trusted: true
+    channels:
+      - "cpm_net:*"
+    keys:                     # in all 134 sampled builds that use networking
+      - "key.cpm.gestureMenu"
+      - "key.cpm.category"
+      - "key.cpm.qa_1"
+
+  collective:
+    display-name: "Collective"
+    trusted: true
+    channels:
+      # Only Collective 8.27+ registers this channel, and every one of those
+      # builds (109 on Modrinth) ships these keys. Older Collective has no
+      # channel of its own and no lang file, so it never matches. Don't
+      # widen this to "collective:*".
+      - "collective:collective_installed_packet"
+    keys:
+      - "collective.collective.message.headcachereset"
+      - "collective.areas.gui.unnamedarea"
+      - "collective.customcredits.message.showingcredits"
+
+  # ---- Majority rule --------------------------------------------------
+
   xaeros-minimap:
     display-name: "Xaero's Minimap"
     channels:
@@ -1467,15 +1517,6 @@ mods:
       - "item.storagedrawers.drawer_key"
       - "item.storagedrawers.shroud_key"
 
-  plasmo-voice:
-    display-name: "Plasmo Voice"
-    channels:
-      - "plasmovoice:*"
-    keys:
-      - "key.plasmovoice.general"
-      - "key.plasmovoice.settings"
-      - "gui.plasmovoice.addons"
-
   joy-of-painting:
     display-name: "Joy of Painting"
     channels:
@@ -1680,15 +1721,6 @@ mods:
       - "config.jade.plugin_cobblemonintegrations.healer"
       - "config.jade.plugin_cobblemonintegrations.berry_bush"
       - "config.jade.plugin_cobblemonintegrations.pokemon_entity"
-
-  custom-player-models:
-    display-name: "Customizable Player Models"
-    channels:
-      - "cpm:*"
-    keys:
-      - "key.cpm.qa_1"
-      - "key.cpm.qa_2"
-      - "button.cpm.ok"
 
   applied-energistics-2-wireless-terminals:
     display-name: "Applied Energistics 2 Wireless Terminals"

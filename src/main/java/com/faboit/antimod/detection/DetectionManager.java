@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 /**
@@ -267,9 +268,13 @@ public final class DetectionManager {
         Set<String> registered = channelTracker.getSpoofCheckChannels(player);
         if (registered.isEmpty()) return;
         int budget = cfg.getSpoofMaxModsPerSweep();
-        for (SpoofModConfig mod : cfg.getSpoofMods().values()) {
-            if (budget <= 0) break;
+        // Trusted entries first and always: they decide the verdict, so they
+        // don't count against max-mods-per-sweep.
+        List<SpoofModConfig> ordered = new ArrayList<>(cfg.getSpoofMods().values());
+        ordered.sort((a, b) -> Boolean.compare(b.isTrusted(), a.isTrusted()));
+        for (SpoofModConfig mod : ordered) {
             if (!mod.isEnabled()) continue;
+            if (!mod.isTrusted() && budget <= 0) break;
             String channel = mod.findChannel(registered);
             if (channel == null) continue;
             List<String> keys = new ArrayList<>(new LinkedHashSet<>(mod.getTranslationKeys()));
@@ -277,7 +282,7 @@ public final class DetectionManager {
             for (String key : keys) {
                 probes.add(new PendingProbe(mod.getId(), key, ProbeKind.SPOOF_CHECK));
             }
-            budget--;
+            if (!mod.isTrusted()) budget--;
         }
     }
 
@@ -320,10 +325,27 @@ public final class DetectionManager {
 
         List<String> hidden = batch.getHiddenSpoofMods();
         List<String> verified = batch.getVerifiedSpoofMods();
-        if (hidden.size() == 1 && !verified.isEmpty()) {
+        Map<String, SpoofModConfig> spoofMods = cfg.getSpoofMods();
+        Predicate<String> trusted = id -> {
+            SpoofModConfig mod = spoofMods.get(id);
+            return mod != null && mod.isTrusted();
+        };
+        List<String> hiddenTrusted = hidden.stream().filter(trusted).toList();
+        boolean verifiedTrusted = verified.stream().anyMatch(trusted);
+
+        // A trusted entry failing is a detection, not a sign of a bad entry,
+        // so only ordinary entries feed the auto-disable.
+        if (hidden.size() == 1 && !verified.isEmpty() && !trusted.test(hidden.get(0))) {
             entryMonitor.recordMiss(hidden.get(0), player.getUniqueId());
         }
-        boolean enoughHidden = hidden.size() >= cfg.getSpoofMinHiddenMods() && hidden.size() > verified.size();
+        boolean enoughHidden;
+        if (!hiddenTrusted.isEmpty()) {
+            enoughHidden = true;                       // a trusted entry hid its keys: flag
+        } else if (verifiedTrusted) {
+            enoughHidden = false;                      // a trusted entry verified: clear
+        } else {
+            enoughHidden = hidden.size() >= cfg.getSpoofMinHiddenMods() && hidden.size() > verified.size();
+        }
         if (!enoughHidden && !echoed) return;
 
         List<String> evidence = new ArrayList<>();
@@ -334,7 +356,8 @@ public final class DetectionManager {
                 String name = mod == null ? id : mod.getDisplayName();
                 names.add(name + " [" + batch.getSpoofCheckChannel(id) + "]");
             }
-            evidence.add("hid " + hidden.size() + " of " + (hidden.size() + verified.size())
+            evidence.add((hiddenTrusted.isEmpty() ? "" : "trusted mod hidden; ")
+                    + "hid " + hidden.size() + " of " + (hidden.size() + verified.size())
                     + " channel-confirmed mods: " + String.join(", ", names));
         }
         if (echoed) {
