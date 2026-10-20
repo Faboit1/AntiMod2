@@ -26,7 +26,7 @@ mods:
   enchdesc: {name: "Enchantment Descriptions", keys: ["enchdesc.jei.compatible_items.title"]}
   moonlight: {name: "Moonlight Lib", keys: ["fluid.moonlight.generic_fluid"]}
   jade: {name: "Jade", keys: ["key.jade.config"]}
-  collective: {name: "Collective", keys: ["collective.collective.gui.add"]}
+  collective: {name: "Collective", keys: ["collective.collective.message.headcachereset"]}
   balm: {name: "Balm", keys: ["balm.configuration.exampleInt"]}
   quark: {name: "Quark", keys: ["quark.emote.no"]}
   betteradvancements: {name: "Better Advancements", keys: ["title.betteradvancements.config"]}
