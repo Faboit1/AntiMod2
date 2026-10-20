@@ -19,10 +19,10 @@ detection:
   # Run detection automatically when a player joins.
   on-join: true
 
-  # Delay after join before running detection (in ticks; 20 ticks = 1 second).
-  # 0 = probe immediately (next tick), while the client is still on the loading
-  # screen — this is the fastest and most silent. Raise it only if a client
-  # needs time to settle before it will answer probes.
+  # Extra delay before the join sweep (in ticks; 20 ticks = 1 second). The
+  # sweep already waits until the client has loaded the world (Paper 1.21.4+;
+  # a client still on the loading screen drops the probe signs). 0 = probe as
+  # soon as it has.
   join-delay-ticks: 0
 
   # Run detection periodically for online players.

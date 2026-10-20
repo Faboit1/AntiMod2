@@ -2,7 +2,7 @@
 
 Silent client-mod detection for Paper 1.21.6, using the sign / translation-key exploit. **Fully compatible with Folia**.
 
-Sends a phantom sign to the client during the join sequence, packed with translation keys for banned mods. The client either resolves the key (mod is installed) or falls back to the marker (mod is absent). The client's `UPDATE_SIGN` reply reveals which mods are present. The whole handshake runs during the loading screen, invisibly.
+Sends a phantom sign to the client during the join sequence, packed with translation keys for banned mods. The client either resolves the key (mod is installed) or falls back to the marker (mod is absent). The client's `UPDATE_SIGN` reply reveals which mods are present. The join sweep runs as soon as the client has loaded the world (a client still on the loading screen has no chunks and drops the signs).
 
 Inspired by the technique used on DonutSMP.
 
@@ -40,7 +40,7 @@ Everything is in `config.yml`. Key knobs:
 ```yaml
 detection:
   on-join: true              # probe every player on join
-  join-delay-ticks: 0        # 0 = probe immediately, during the loading screen
+  join-delay-ticks: 0        # extra delay after the client has loaded the world
   periodic:
     enabled: false           # re-probe online players periodically
     interval: 600            # ...every 10 minutes
@@ -209,7 +209,8 @@ Every push to `main` builds and uploads the jar as a workflow artifact. Tag a re
 
 ## Notes and caveats
 
-- **Silence:** the sign editor should never visibly open during a join because the CLOSE_WINDOW packet arrives before the client draws the editor UI. If you see it briefly flash for players who join mid-tick, increase `detection.join-delay-ticks` — but for on-demand `/antimod check` runs against fully-loaded players it *may* briefly flash a sign editor. This is a client-side rendering limitation.
+- **Join timing:** on Paper 1.21.4+ (including Folia forks) the join sweep waits for the client to report that it has loaded the world. Paper reports it after 3 seconds anyway if the client stays silent, and AntiMod gives up waiting after 10 seconds. Probing earlier doesn't work: a client still on the loading screen has no chunk to put the phantom signs in, so it drops them or answers with a blank sign. Older servers probe right after the join event.
+- **Silence:** the sign editor should not visibly open, because the CLOSE_WINDOW packet arrives in the same batch, before the client draws the editor UI. In rare cases it *may* flash briefly. This is a client-side rendering limitation.
 - **Bypasses:** any player with `antimod.bypass` is never probed. Give it sparingly.
 - **False positives:** the fallback comparison is exact. If a mod happens to translate its key to literally `am_fb`, change `detection.fallback-marker` to something more unique.
 - **Anti-cheat sensitivity:** because this uses raw packets and can trigger a rapid open/close of the sign editor, some clients with client-side anti-cheat or protocol validators may complain in their logs. Vanilla and standard modded clients handle it fine.

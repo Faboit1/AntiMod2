@@ -118,8 +118,10 @@ public final class SignResponseListener extends PacketListenerAbstract {
                         continue;
                     }
                     if (kind == ProbeKind.SPOOF_CHECK) {
-                        // An empty answer is a key that resolved to an empty
-                        // translation, so the mod is there.
+                        // An empty line means the client never got the sign's
+                        // text (e.g. its chunk wasn't loaded yet): no answer,
+                        // neither proof of the mod nor of hiding.
+                        if (returned != null && returned.isEmpty()) continue;
                         batch.recordSpoofAnswer(modId, probedKey, !fallback && !rawEcho, rawEcho);
                         continue;
                     }

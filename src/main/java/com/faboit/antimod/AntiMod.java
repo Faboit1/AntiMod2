@@ -7,6 +7,7 @@ import com.faboit.antimod.detection.ChannelTracker;
 import com.faboit.antimod.detection.DetectionManager;
 import com.faboit.antimod.detection.SignResponseListener;
 import com.faboit.antimod.listener.PlayerJoinListener;
+import com.faboit.antimod.listener.WorldLoadedListener;
 import com.faboit.antimod.util.FoliaScheduler;
 import com.faboit.antimod.violation.ViolationManager;
 import com.github.retrooper.packetevents.PacketEvents;
@@ -77,9 +78,14 @@ public final class AntiMod extends JavaPlugin {
         packetListeners.add(channelTracker);
         packetListeners.add(signListener);
 
-        // Event listener for join/quit
-        getServer().getPluginManager().registerEvents(
-                new PlayerJoinListener(this, detectionManager), this);
+        // Event listener for join/quit. On Paper 1.21.4+ the join sweep waits
+        // until the client reports it has loaded the world.
+        boolean worldLoadEvent = WorldLoadedListener.isSupported();
+        PlayerJoinListener joinListener = new PlayerJoinListener(this, detectionManager, worldLoadEvent);
+        getServer().getPluginManager().registerEvents(joinListener, this);
+        if (worldLoadEvent) {
+            getServer().getPluginManager().registerEvents(new WorldLoadedListener(joinListener), this);
+        }
 
         // Command
         PluginCommand cmd = getCommand("antimod");
