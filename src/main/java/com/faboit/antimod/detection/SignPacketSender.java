@@ -57,9 +57,10 @@ public final class SignPacketSender {
      *     configured offset can exceed the whole build range): the run is
      *     placed at whichever end of the world is farther from the player
      *
-     * Only if the world had fewer valid Y levels than there are signs — which
-     * no vanilla dimension does — would the run spill into the neighbouring
-     * block column, and even then every position stays unique.
+     * A column holds at most {@value #MAX_COLUMN} signs, so the run never
+     * reaches back down to the player. Larger probes (a /antimod mods scan)
+     * add more columns at the same height, spiralling outward from the
+     * player's column, and every position stays unique.
      */
     public List<Vector3i> computeSignPositions(Player player, int count) {
         if (count <= 0) return List.of();
@@ -72,7 +73,7 @@ public final class SignPacketSender {
         int maxY = player.getWorld().getMaxHeight() - 1; // highest valid block Y
 
         int span = maxY - minY + 1;          // distinct Y levels available
-        int perColumn = Math.min(count, span);
+        int perColumn = Math.min(Math.min(count, span), MAX_COLUMN);
         int highestStart = maxY - perColumn + 1;
 
         int startY;
@@ -88,10 +89,36 @@ public final class SignPacketSender {
         startY = Math.max(minY, Math.min(highestStart, startY));
 
         List<Vector3i> positions = new ArrayList<>(count);
+        int column = -1;
+        int[] offsetXZ = {0, 0};
         for (int i = 0; i < count; i++) {
-            positions.add(new Vector3i(baseX + (i / perColumn), startY + (i % perColumn), baseZ));
+            if (i / perColumn != column) {
+                column = i / perColumn;
+                offsetXZ = spiral(column);
+            }
+            positions.add(new Vector3i(baseX + offsetXZ[0], startY + (i % perColumn), baseZ + offsetXZ[1]));
         }
         return positions;
+    }
+
+    /** Most signs stacked in one block column. */
+    private static final int MAX_COLUMN = 64;
+
+    /** The n-th column offset of a square spiral around (0, 0): (0,0), (1,0), (1,1), (0,1), (-1,1), ... */
+    private static int[] spiral(int n) {
+        int x = 0, z = 0, dx = 1, dz = 0, leg = 1, steps = 0, turns = 0;
+        for (int i = 0; i < n; i++) {
+            x += dx;
+            z += dz;
+            if (++steps == leg) {
+                steps = 0;
+                int t = dx;
+                dx = -dz;
+                dz = t;
+                if (++turns % 2 == 0) leg++;
+            }
+        }
+        return new int[]{x, z};
     }
 
     /**
@@ -202,7 +229,22 @@ public final class SignPacketSender {
         NBTList<NBTCompound> messages = new NBTList<>(NBTType.COMPOUND);
         for (int line = 0; line < 4; line++) {
             NBTCompound msg = new NBTCompound();
-            if (session.hasLine(line)) {
+            List<DetectionSession.PackedProbe> packed = session.getPackedAt(line);
+            if (packed != null) {
+                // {text:"", extra:[{text:"¦0¦"}, {translate:k0, fallback:""}, {text:"¦1¦"}, ...]}
+                NBTList<NBTCompound> extra = new NBTList<>(NBTType.COMPOUND);
+                for (int i = 0; i < packed.size(); i++) {
+                    NBTCompound mark = new NBTCompound();
+                    mark.setTag("text", new NBTString(DetectionSession.marker(i)));
+                    extra.addTag(mark);
+                    NBTCompound probe = new NBTCompound();
+                    probe.setTag("translate", new NBTString(packed.get(i).key()));
+                    probe.setTag("fallback", new NBTString(""));
+                    extra.addTag(probe);
+                }
+                msg.setTag("text", new NBTString(""));
+                msg.setTag("extra", extra);
+            } else if (session.hasLine(line)) {
                 msg.setTag("translate", new NBTString(session.getKeyAt(line)));
                 msg.setTag("fallback", new NBTString(fallback));
             } else {

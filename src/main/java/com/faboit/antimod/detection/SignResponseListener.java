@@ -1,6 +1,7 @@
 package com.faboit.antimod.detection;
 
 import com.faboit.antimod.AntiMod;
+import com.faboit.antimod.detection.DetectionSession.ProbeKind;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
@@ -12,6 +13,7 @@ import com.faboit.antimod.util.FoliaScheduler;
 import org.bukkit.entity.Player;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -86,18 +88,48 @@ public final class SignResponseListener extends PacketListenerAbstract {
                     String probedKey = session.getKeyAt(i);
                     String returned = lines[i];
 
-                    boolean untranslated = returned == null || returned.isEmpty()
-                            || returned.equals(session.getFallbackMarker());
-                    // A vanilla client always answers with the fallback we
-                    // supplied, never with the key itself.
+                    boolean fallback = returned == null || returned.equals(session.getFallbackMarker());
+                    // The key itself is never proof the mod is installed:
+                    // clients before 1.19.4 ignore the fallback and show the
+                    // raw key for any key they don't know, so that is the
+                    // vanilla answer there. On newer clients it is a sign of
+                    // tampering, which the spoof check weighs separately.
                     boolean rawEcho = probedKey.equals(returned);
 
-                    if (session.isSpoofCheckLine(i)) {
-                        batch.recordSpoofAnswer(modId, probedKey, !untranslated && !rawEcho, rawEcho);
+                    List<DetectionSession.PackedProbe> packed = session.getPackedAt(i);
+                    if (packed != null) {
+                        // Several catalog keys in one line: a key resolved if its
+                        // slice is neither empty (the fallback) nor the raw key
+                        // (what clients before 1.19.4 show instead).
+                        String[] parts = returned == null ? null : DetectionSession.unpack(returned, packed.size());
+                        if (parts == null) continue; // mangled: leave these unanswered
+                        for (int j = 0; j < parts.length; j++) {
+                            DetectionSession.PackedProbe p = packed.get(j);
+                            batch.recordCatalogAnswer(p.owner(), p.key(),
+                                    !parts[j].isEmpty() && !parts[j].equals(p.key()));
+                        }
                         continue;
                     }
-                    if (rawEcho) batch.recordRawEcho(probedKey);
-                    if (untranslated) continue; // fallback — mod not present
+                    ProbeKind kind = session.getKindAt(i);
+                    if (kind == ProbeKind.CATALOG) {
+                        // Only reported: a real, non-empty translation counts.
+                        batch.recordCatalogAnswer(modId, probedKey,
+                                !fallback && !rawEcho && !returned.isEmpty());
+                        continue;
+                    }
+                    if (kind == ProbeKind.SPOOF_CHECK) {
+                        // An empty line means the client never got the sign's
+                        // text (e.g. its chunk wasn't loaded yet): no answer,
+                        // neither proof of the mod nor of hiding.
+                        if (returned != null && returned.isEmpty()) continue;
+                        batch.recordSpoofAnswer(modId, probedKey, !fallback && !rawEcho, rawEcho);
+                        continue;
+                    }
+                    if (rawEcho) {
+                        batch.recordRawEcho(probedKey);
+                        continue;
+                    }
+                    if (fallback || returned.isEmpty()) continue; // mod not present
 
                     answered.merge(modId, probedKey, (a, b) -> a + "," + b);
                 }
